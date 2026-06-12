@@ -223,6 +223,7 @@
     <button class="tab" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
     <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')">🧾 Tax Invoice</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
+    <button class="tab" id="tab-reports" onclick="showTab('reports')">📈 Reports</button>
     <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-settings" onclick="showTab('settings')">⚙️ Settings</button>
     <button class="tab hidden" id="tab-admin" onclick="showTab('admin')">👤 Admin</button>
@@ -461,6 +462,46 @@
     </div>
     <div class="actions"><button class="btn green" onclick="saveSettings()">💾 Save settings</button></div>
     <div class="status" id="settingsStatus"></div>
+  </div>
+</div>
+
+<!-- ================= REPORTS TAB ================= -->
+<div class="wrap hidden" id="view-reports">
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <h2 style="margin:0">รายงานภาษีขาย / Sales &amp; VAT Report</h2>
+        <div class="hint">สรุปยอดขายและภาษีขาย (สำหรับ ภพ.30) · กรองช่วงวันที่ · Export Excel/CSV</div>
+      </div>
+      <button class="btn green" style="margin-left:auto" onclick="exportReportsCSV()">⬇ Export CSV/Excel</button>
+    </div>
+    <div class="filterbar" style="gap:16px">
+      <div class="field" style="margin:0"><label>ตั้งแต่วันที่</label><input id="repFrom" type="date" onchange="renderReports()"></div>
+      <div class="field" style="margin:0"><label>ถึงวันที่</label><input id="repTo" type="date" onchange="renderReports()"></div>
+      <div class="field" style="margin:0"><label>ประเภทเอกสาร</label>
+        <select id="repType" onchange="renderReports()">
+          <option value="tax">ใบกำกับภาษี (Tax Invoice)</option>
+          <option value="inv">ใบแจ้งหนี้ (Invoice)</option>
+          <option value="all">ทั้งหมด</option>
+        </select>
+      </div>
+      <button class="btn ghost" style="align-self:flex-end" onclick="loadReports()">🔄 รีเฟรช</button>
+    </div>
+    <div class="status info show" id="repSource"></div>
+    <div class="kpis" id="repKpis"></div>
+    <table class="htable">
+      <thead><tr>
+        <th style="width:100px">วันที่</th>
+        <th style="width:150px">เลขที่</th>
+        <th>ลูกค้า</th>
+        <th style="width:140px">เลขผู้เสียภาษี</th>
+        <th style="width:120px;text-align:right">มูลค่า (ก่อน VAT)</th>
+        <th style="width:110px;text-align:right">VAT 7%</th>
+        <th style="width:120px;text-align:right">รวมทั้งสิ้น</th>
+      </tr></thead>
+      <tbody id="repBody"></tbody>
+    </table>
+    <div class="empty-preview hidden" id="repEmpty">ไม่มีเอกสารในช่วงที่เลือก</div>
   </div>
 </div>
 
@@ -1601,9 +1642,66 @@ window.seedAdmins = async function(){
   return {created:done};
 };
 
+/* ============== REPORTS (รายงานภาษีขาย ภพ.30) ============== */
+function repFilteredDocs(){
+  const type=$('repType').value, from=$('repFrom').value, to=$('repTo').value;
+  return histData.filter(i=>{
+    if(i.status==='cancelled') return false;
+    const t = i.docType==='tax'?'tax':(i.docType==='qt'?'qt':'inv');
+    if(t==='qt') return false;
+    if(type!=='all' && t!==type) return false;
+    const d=i.date||'';
+    if(from && d<from) return false;
+    if(to && d>to) return false;
+    return true;
+  }).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+}
+function repRow(i){
+  const net=Number(i.net)||0;
+  const base=Math.round((net/1.07)*100)/100;
+  const vat=Math.round((net-base)*100)/100;
+  return {date:i.date,no:i.no,customer:i.customer,tax:i.custTax||'',base,vat,net};
+}
+async function loadReports(){
+  await fetchInvoices();
+  $('repSource').textContent=histSourceText;
+  renderReports();
+}
+function renderReports(){
+  const docs=repFilteredDocs().map(repRow);
+  const body=$('repBody'); body.innerHTML='';
+  let tBase=0,tVat=0,tNet=0;
+  docs.forEach(r=>{ tBase+=r.base; tVat+=r.vat; tNet+=r.net;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(fmtDate(r.date))}</td><td><span class="badge">${esc(r.no||'-')}</span></td><td>${esc(r.customer||'-')}</td><td>${esc(r.tax||'-')}</td>
+      <td style="text-align:right">${fmt(r.base)}</td><td style="text-align:right">${fmt(r.vat)}</td><td style="text-align:right;font-weight:600">${fmt(r.net)}</td>`;
+    body.appendChild(tr);
+  });
+  $('repEmpty').classList.toggle('hidden', docs.length>0);
+  $('repKpis').innerHTML=`
+    <div class="kpi"><div class="k">จำนวนเอกสาร</div><div class="v">${docs.length}</div></div>
+    <div class="kpi"><div class="k">มูลค่า (ก่อน VAT)</div><div class="v">${fmt(tBase)}</div></div>
+    <div class="kpi"><div class="k">ภาษีขาย VAT</div><div class="v brand">${fmt(tVat)}</div></div>
+    <div class="kpi"><div class="k">รวมทั้งสิ้น (บาท)</div><div class="v">${fmt(tNet)}</div></div>`;
+}
+function exportReportsCSV(){
+  const docs=repFilteredDocs().map(repRow);
+  const head=['วันที่','เลขที่','ลูกค้า','เลขผู้เสียภาษี','มูลค่าก่อนVAT','VAT7%','รวมทั้งสิ้น'];
+  const rows=docs.map(r=>[fmtDate(r.date), r.no||'', r.customer||'', r.tax||'', r.base.toFixed(2), r.vat.toFixed(2), r.net.toFixed(2)]);
+  const tBase=docs.reduce((a,r)=>a+r.base,0), tVat=docs.reduce((a,r)=>a+r.vat,0), tNet=docs.reduce((a,r)=>a+r.net,0);
+  rows.push(['','','','รวม', tBase.toFixed(2), tVat.toFixed(2), tNet.toFixed(2)]);
+  const csv=[head,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download='sales-vat-report_'+($('repFrom').value||'all')+'_'+($('repTo').value||'now')+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
 /* ---------- tabs ---------- */
 function showTab(t){
-  ['create','taxinvoice','dashboard','vendor','history','settings','admin'].forEach(x=>{
+  ['create','taxinvoice','dashboard','vendor','history','reports','settings','admin'].forEach(x=>{
     $('tab-'+x).classList.toggle('active',t===x);
     $('view-'+x).classList.toggle('hidden',t!==x);
   });
@@ -1612,6 +1710,7 @@ function showTab(t){
   if(t==='vendor') loadVendors();
   if(t==='taxinvoice') renderTaxPreview(false);
   if(t==='admin') loadAdminUsers();
+  if(t==='reports') loadReports();
 }
 
 /* ---------- settings (seller/company) ---------- */
