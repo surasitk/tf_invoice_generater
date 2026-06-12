@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ระบบสร้างใบแจ้งหนี้ / Invoice Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#eceef3; --card:#fff; --line:#e6e8ef; --ink:#1a1d29; --muted:#8a90a2;
+    --brand:#4f6bff; --brand-dark:#3b54e0; --ok:#15803d; --danger:#e11d48; --soft:#eef1ff;
+    --shadow:0 1px 3px rgba(20,25,50,.06),0 8px 24px rgba(20,25,50,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header.appbar{background:var(--card);border-bottom:1px solid var(--line);padding:14px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+  header.appbar h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
+  header.appbar .sub{color:var(--muted);font-size:12px}
+  .tabs{display:flex;gap:6px;margin-left:auto;background:#f1f2f7;padding:4px;border-radius:11px}
+  .tab{padding:8px 16px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted)}
+  .tab.active{background:var(--brand);color:#fff;box-shadow:0 2px 8px rgba(79,107,255,.35)}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px}
+  .layout{display:grid;grid-template-columns:minmax(0,430px) 1fr;gap:20px;align-items:start}
+  @media(max-width:920px){.layout{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+  .card h2{font-size:14px;margin:0 0 12px;font-weight:700;color:var(--ink)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13px;background:#fafbfd;color:var(--ink);transition:border .15s,box-shadow .15s}
+  .field input:focus,.field textarea:focus,.field select:focus,.items input:focus,.items textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,107,255,.15);background:#fff}
+  .field textarea{resize:vertical;min-height:58px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);margin:18px 0 8px;border-top:1px dashed var(--line);padding-top:14px}
+  table.items{table-layout:fixed;width:100%}
+  .items th{font-size:11px;color:var(--muted);text-align:left;padding:4px 6px;font-weight:600}
+  .items td{padding:3px 4px;vertical-align:top;overflow:hidden}
+  .items input,.items textarea{width:100%;box-sizing:border-box;padding:7px 8px;font-size:13px}
+  .items .amt{text-align:right}
+  .icon-btn{border:1px solid var(--line);background:#fff;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:15px;color:var(--danger);line-height:1}
+  .btn{padding:11px 18px;border-radius:11px;border:1px solid var(--brand);background:var(--brand);color:#fff;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(79,107,255,.28);transition:filter .15s}
+  .btn:hover{background:var(--brand-dark)}
+  .btn.ghost{background:#fff;color:var(--brand)}
+  .btn.add{background:var(--soft);color:var(--brand);border-color:#c7d2fe;width:100%;margin-top:6px}
+  .btn.green{background:var(--ok);border-color:var(--ok)}
+  .btn.green:hover{filter:brightness(.94)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .totbox{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:6px;font-size:13px}
+  .totbox .line{display:flex;justify-content:space-between;padding:3px 0}
+  .totbox .net{font-weight:700;border-top:1px solid var(--line);margin-top:4px;padding-top:6px;font-size:15px;color:var(--brand)}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px}
+  .status{font-size:12px;padding:8px 12px;border-radius:8px;margin-top:10px;display:none}
+  .status.show{display:block}
+  .status.ok{background:#dcfce7;color:var(--ok)}
+  .status.err{background:#fee2e2;color:var(--danger)}
+  .status.info{background:#dbeafe;color:var(--brand-dark)}
+
+  /* ===== Preview / Invoice paper (FlowAccount style) ===== */
+  .preview-pane{position:relative}
+  .paper-scroll{overflow:auto;background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;justify-content:center}
+  .paper{background:#fff;width:760px;min-height:1075px;padding:46px 48px;box-shadow:0 2px 12px rgba(0,0,0,.12);color:#222;font-size:13px;position:relative;overflow:hidden}
+  /* corner page-number triangle */
+  .inv-corner{position:absolute;top:0;right:0;width:0;height:0;border-top:54px solid #6d28d9;border-left:54px solid transparent}
+  .inv-corner span{position:absolute;top:-48px;right:6px;color:#fff;font-weight:700;font-size:15px}
+  .inv-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+  .inv-head .logo{width:150px;flex:none;display:flex;align-items:flex-start}
+  .inv-head .logo img{max-width:100%;max-height:64px;object-fit:contain}
+  .inv-head .co{flex:1;font-size:11.5px;line-height:1.5;color:#333}
+  .inv-head .co .th{font-weight:700;font-size:13px;color:#111}
+  .inv-head .co .en{font-weight:700;font-size:11px}
+  .doc-title{text-align:right;min-width:230px;padding-top:8px}
+  .doc-title .t{font-weight:700;font-size:20px;color:#5b21b6}
+  .doc-title .copy{font-size:12px;color:#666;margin-top:1px}
+  .meta-box{margin-top:10px;border:1px solid #e3d9f5;background:#faf8ff;border-radius:6px;padding:9px 12px;font-size:12px}
+  .meta-box .l{display:flex;padding:2px 0}
+  .meta-box .l b{min-width:78px;color:#5b21b6;font-weight:600}
+  .cust{margin-top:18px;font-size:12px;line-height:1.55}
+  .cust .hd{color:#5b21b6;font-weight:700;margin-bottom:2px}
+  table.lines{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}
+  table.lines thead th{background:#f3f0fb;color:#4b3a86;font-weight:700;padding:8px 10px;text-align:right;border-top:1px solid #d9cef0;border-bottom:1px solid #d9cef0}
+  table.lines thead th.l{text-align:left}
+  table.lines thead th.c{text-align:center}
+  table.lines tbody td{padding:8px 10px;vertical-align:top;text-align:right;border-bottom:1px solid #eee}
+  table.lines tbody td.l{text-align:left}
+  table.lines tbody td.c{text-align:center}
+  table.lines .c-no{width:42px}
+  table.lines .c-amt{width:120px;white-space:nowrap}
+  .totals{margin-top:6px;display:flex;justify-content:flex-end}
+  .totals table{border-collapse:collapse;font-size:12.5px;min-width:340px}
+  .totals td{padding:5px 4px}
+  .totals .lab{text-align:right;color:#444;padding-right:20px}
+  .totals .val{text-align:right;white-space:nowrap;font-weight:600;min-width:120px}
+  .totals tr.net .lab{font-weight:700;color:#111}
+  .totals tr.net .val{font-weight:700;color:#5b21b6;border-top:1px solid #ccc}
+  .baht{margin-top:6px;font-weight:700;font-size:12.5px;color:#111}
+  .note{margin-top:24px;font-size:11.5px;color:#444;line-height:1.5}
+  .note .hd{color:#9333ea;font-weight:700}
+  .sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:70px;text-align:center;font-size:11.5px;color:#333}
+  .sign .nm{margin-bottom:40px}
+  .sign .ln{border-top:1px dotted #555;margin:0 10px 5px}
+  .sign .two{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+  .empty-preview{color:var(--muted);text-align:center;padding:60px 20px;font-size:13px}
+
+  /* History */
+  .filterbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 14px}
+  .fpills{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .fpill{border:none;background:transparent;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .fpill.active{color:var(--brand);border-bottom-color:var(--brand)}
+  .fpill .cnt{font-size:11px;background:#eef0f5;color:var(--muted);border-radius:10px;padding:1px 7px;margin-left:2px}
+  .fpill.active .cnt{background:var(--soft);color:var(--brand)}
+  .hsearch{margin-left:auto;min-width:240px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13px;background:#fafbfd}
+  .hsearch:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,107,255,.15);background:#fff}
+  .htable{width:100%;border-collapse:collapse;font-size:13px}
+  .htable th{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600}
+  .htable td{padding:11px 10px;border-bottom:1px solid var(--line)}
+  .htable tr:hover{background:#f8f9fd}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--soft);color:var(--brand);font-weight:600}
+  .numcell{display:flex;align-items:center;gap:8px;font-weight:600}
+  .numcell .ic{width:24px;height:24px;border-radius:7px;background:var(--soft);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  .client{display:flex;align-items:center;gap:9px}
+  .avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex:none}
+  .spill{border:none;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:20px}
+  .s-open{background:#ede9fe;color:#6d28d9}
+  .s-paid{background:#dcfce7;color:#15803d}
+  .s-overdue{background:#ffe4e6;color:#be123c}
+  .s-draft{background:#dbeafe;color:#1d4ed8}
+  .link{color:var(--brand);text-decoration:none;font-weight:600;cursor:pointer}
+  .subj{color:#4b5563}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<header class="appbar">
+  <div>
+    <h1>ระบบสร้างใบแจ้งหนี้ <span style="color:var(--muted);font-weight:600">/ Invoice Generator</span></h1>
+    <div class="sub">กรอกข้อมูล → Preview → Generate PDF · เก็บประวัติบน Google Drive</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ สร้างใบแจ้งหนี้</button>
+    <button class="tab" id="tab-history" onclick="showTab('history')">📁 ประวัติ (History)</button>
+  </div>
+</header>
+
+<!-- ================= CREATE TAB ================= -->
+<div class="wrap" id="view-create">
+  <div class="layout">
+    <!-- FORM -->
+    <div class="card">
+      <h2>ข้อมูลใบแจ้งหนี้</h2>
+
+      <div class="section-title">ผู้ออกใบแจ้งหนี้ / Seller</div>
+      <div class="field"><label>ชื่อบริษัท (ไทย)</label><input id="sellerThai" value="บริษัท ทรานส์ฟอร์เมชั่นนอล จำกัด (สำนักงานใหญ่)"></div>
+      <div class="field"><label>ชื่อบริษัท (English)</label><input id="sellerEn" value="TRANSFORMATIONAL CO., LTD. (Head Office)"></div>
+      <div class="field"><label>ที่อยู่</label><textarea id="sellerAddr">1039/9 ซอยสุขุมวิท 71 แขวงคลองตันเหนือ เขตวัฒนา กรุงเทพมหานคร (10110)</textarea></div>
+      <div class="field"><label>เลขประจำตัวผู้เสียภาษีอากร</label><input id="sellerTax" value="0105563113638"></div>
+      <div class="field"><label>เบอร์โทร (ถ้ามี)</label><input id="sellerPhone" placeholder="0XX-XXX-XXXX"></div>
+      <div class="field">
+        <label>โลโก้บริษัท (อัปโหลด .png/.jpg) — ค่าเริ่มต้นใช้โลโก้ Transformational</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <img id="logoThumb" style="width:46px;height:46px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff" />
+          <input type="file" id="logoFile" accept="image/*" onchange="onLogoUpload(event)" style="flex:1;border:none;padding:0;background:none">
+          <button class="icon-btn" title="ลบโลโก้" onclick="clearLogo()" style="color:var(--danger)">×</button>
+        </div>
+      </div>
+
+      <div class="section-title">ลูกค้า / Customer</div>
+      <div class="field"><label>ชื่อลูกค้า / Customers</label><input id="custName" placeholder="บริษัท ... จำกัด"></div>
+      <div class="field"><label>ที่อยู่ / Address</label><textarea id="custAddr" placeholder="ที่อยู่ลูกค้า"></textarea></div>
+      <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input id="custTax" placeholder="0000000000000"></div>
+
+      <div class="section-title">เอกสาร / Document</div>
+      <div class="row2">
+        <div class="field"><label>เลขที่ / No.</label><input id="docNo" placeholder="INV-XXX-260612-001"></div>
+        <div class="field"><label>วันที่ / Date</label><input id="docDate" type="date"></div>
+      </div>
+
+      <div class="section-title">รายการ / Items</div>
+      <table class="items" style="width:100%">
+        <thead><tr><th style="width:36px">#</th><th>รายละเอียด</th><th style="width:110px">จำนวนเงิน</th><th style="width:34px"></th></tr></thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+      <button class="btn add" onclick="addItem()">+ เพิ่มรายการ</button>
+
+      <div class="section-title">หมายเหตุ / Note</div>
+      <div class="field"><textarea id="docNote" placeholder="เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX"></textarea></div>
+
+      <div class="totbox" id="totSummary"></div>
+
+      <div class="actions">
+        <button class="btn" onclick="renderPreview(true)">👁 Preview</button>
+        <button class="btn green" id="btnPdf" onclick="generatePDF()">⬇ Generate PDF</button>
+        <button class="btn ghost" onclick="resetForm()">ล้างฟอร์ม</button>
+      </div>
+      <div class="hint">VAT คิด 7% จากรวมเงินอัตโนมัติ · ยอดเงินสุทธิ = รวมเงิน + VAT</div>
+      <div class="status" id="formStatus"></div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="card preview-pane">
+      <div class="toolbar">
+        <h2 style="margin:0">ตัวอย่าง / Preview</h2>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <label class="hint" style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="copyToggle" onchange="renderPreview()"> แสดง "สำเนา (Copy)"</label>
+        </div>
+      </div>
+      <div class="paper-scroll" id="paperScroll">
+        <div class="empty-preview" id="emptyPreview">กรอกข้อมูลแล้วกด <b>Preview</b> เพื่อดูตัวอย่างใบแจ้งหนี้</div>
+        <div class="paper hidden" id="paper"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= HISTORY TAB ================= -->
+<div class="wrap hidden" id="view-history">
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <h2 style="margin:0">ใบแจ้งหนี้ <span class="badge" id="histCount" style="vertical-align:middle"></span></h2>
+        <div class="hint">รายการใบแจ้งหนี้ที่สร้างไว้ · กดสถานะเพื่อเปลี่ยน · กดดาวน์โหลดเพื่อเปิด PDF</div>
+      </div>
+      <button class="btn ghost" style="margin-left:auto" onclick="loadHistory()">🔄 รีเฟรช</button>
+      <button class="btn" onclick="showTab('create')">+ สร้างใหม่</button>
+    </div>
+
+    <div class="filterbar">
+      <div class="fpills" id="filterPills">
+        <button class="fpill active" data-f="all" onclick="setFilter('all')">ทั้งหมด <span class="cnt" id="c-all">0</span></button>
+        <button class="fpill" data-f="draft" onclick="setFilter('draft')">ร่าง <span class="cnt" id="c-draft">0</span></button>
+        <button class="fpill" data-f="open" onclick="setFilter('open')">ค้างชำระ <span class="cnt" id="c-open">0</span></button>
+        <button class="fpill" data-f="overdue" onclick="setFilter('overdue')">เกินกำหนด <span class="cnt" id="c-overdue">0</span></button>
+        <button class="fpill" data-f="paid" onclick="setFilter('paid')">ชำระแล้ว <span class="cnt" id="c-paid">0</span></button>
+      </div>
+      <input id="histSearch" class="hsearch" placeholder="🔍 ค้นหา เลขที่ / ลูกค้า / รายละเอียด" oninput="renderHist()">
+    </div>
+
+    <div class="status info show" id="histSource"></div>
+    <table class="htable">
+      <thead><tr>
+        <th style="width:150px">เลขที่ / Number</th>
+        <th>ลูกค้า / Client</th>
+        <th style="width:110px">วันที่</th>
+        <th style="width:130px;text-align:right">ยอดสุทธิ</th>
+        <th style="width:120px">สถานะ</th>
+        <th>รายละเอียด</th>
+        <th style="width:90px;text-align:right"></th>
+      </tr></thead>
+      <tbody id="histBody"></tbody>
+    </table>
+    <div class="empty-preview hidden" id="histEmpty">ยังไม่มีประวัติใบแจ้งหนี้</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — วาง URL ของ Google Apps Script Web App ที่นี่
+   (ดูวิธี deploy ใน README.md). ถ้าเว้นว่าง ระบบจะเก็บประวัติ
+   ไว้ในเบราว์เซอร์ (localStorage) แทน เพื่อให้ทดลองใช้ได้ทันที
+   ============================================================ */
+const CONFIG = {
+  SCRIPT_URL: "",  // <-- เช่น "https://script.google.com/macros/s/AKfy...../exec"
+  DRIVE_FOLDER_ID: "11a2YIzFsXmGqAW5d0Nx8sQR5P_qaU-Xw"
+};
+
+/* ---------- utilities ---------- */
+const $ = id => document.getElementById(id);
+const fmt = n => (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const nl2br = s => esc(s).replace(/\n/g,'<br>');
+
+/* ---------- logo ---------- */
+const DEFAULT_LOGO='data:image/svg+xml;utf8,'+encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160">
+    <defs><linearGradient id="tg" x1="0.15" y1="0.05" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#27a6df"/><stop offset="0.55" stop-color="#1f63bd"/><stop offset="1" stop-color="#16307e"/>
+    </linearGradient></defs>
+    <path d="M118.8,34.7 A40,40 0 1 1 81.2,34.7" fill="none" stroke="url(#tg)" stroke-width="10"/>
+    <path d="M97,42 C80,34 62,36 46,44 C60,46 80,46 97,48 Z" fill="url(#tg)"/>
+    <path d="M97,50 C84,46 68,48 56,56 C68,57 84,55 97,56 Z" fill="url(#tg)"/>
+    <path d="M103,42 C120,34 138,36 154,44 C140,46 120,46 103,48 Z" fill="url(#tg)"/>
+    <path d="M103,50 C116,46 132,48 144,56 C132,57 116,55 103,56 Z" fill="url(#tg)"/>
+    <path d="M100,40 C95,30 88,31 85,37 C89,41 96,45 100,56 C104,45 111,41 115,37 C112,31 105,30 100,40 Z" fill="url(#tg)"/>
+    <path d="M93,54 L100,82 L107,54 Z" fill="url(#tg)"/>
+    <text x="100" y="132" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="700" fill="#16307e" text-anchor="middle" letter-spacing="0.5">TRANSFORMATIONAL</text>
+  </svg>`);
+let logoData=localStorage.getItem('inv_logo')||'';
+function applyLogoThumb(){ const t=$('logoThumb'); if(t) t.src=logoData||DEFAULT_LOGO; }
+function onLogoUpload(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ logoData=r.result; localStorage.setItem('inv_logo',logoData); applyLogoThumb(); renderPreview(false); };
+  r.readAsDataURL(f);
+}
+function clearLogo(){ logoData=''; localStorage.removeItem('inv_logo'); applyLogoThumb(); renderPreview(false); const lf=$('logoFile'); if(lf) lf.value=''; }
+
+/* ---------- Thai Baht text ---------- */
+function bahtText(num){
+  num = Number(num)||0;
+  const txt = ['','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'];
+  const pos = ['','สิบ','ร้อย','พัน','หมื่น','แสน','ล้าน'];
+  function readGroup(n){ // n: string of digits, read as a number
+    let s=''; const len=n.length;
+    for(let i=0;i<len;i++){
+      const d=+n[i]; const p=len-i-1;
+      if(d===0) continue;
+      if(p===0 && d===1 && len>1){ s+='เอ็ด'; }
+      else if(p===1 && d===2){ s+='ยี่'+pos[p]; }
+      else if(p===1 && d===1){ s+=pos[p]; }
+      else { s+=txt[d]+pos[p]; }
+    }
+    return s;
+  }
+  function readInt(intStr){
+    intStr = intStr.replace(/^0+/,'') || '0';
+    if(intStr==='0') return 'ศูนย์';
+    let result='';
+    // handle millions recursively (groups of 6)
+    while(intStr.length>6){
+      const head = intStr.slice(0,intStr.length-6);
+      const tail = intStr.slice(intStr.length-6);
+      result += readGroup(tail.replace(/^0+/,'')||'0') ? '' : '';
+      // simpler: process from most significant — use full approach below
+      break;
+    }
+    // full approach: split into groups of 6 from the right, join with 'ล้าน'
+    const groups=[]; let s=intStr;
+    while(s.length>0){ groups.unshift(s.slice(-6)); s=s.slice(0,-6); }
+    let out='';
+    for(let g=0; g<groups.length; g++){
+      const g2 = groups[g].replace(/^0+/,'');
+      if(g2!=='') out += readGroup(groups[g]);
+      if(g < groups.length-1) out += 'ล้าน';
+    }
+    return out || 'ศูนย์';
+  }
+  const fixed = num.toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  let words = readInt(intPart) + 'บาท';
+  if(decPart==='00'){ words += 'ถ้วน'; }
+  else { words += readInt(decPart) + 'สตางค์'; }
+  return words;
+}
+
+/* ---------- items ---------- */
+let itemSeq=0;
+function addItem(detail='',amount=''){
+  itemSeq++;
+  const tr=document.createElement('tr'); tr.dataset.id=itemSeq;
+  tr.innerHTML=`
+    <td style="text-align:center;color:#9aa0aa" class="rownum"></td>
+    <td><textarea class="it-detail" rows="2" oninput="syncTotals()" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
+    <td><input class="it-amt amt" type="number" step="0.01" value="${amount}" oninput="syncTotals()" placeholder="0.00"></td>
+    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncTotals()">×</button></td>`;
+  $('itemsBody').appendChild(tr);
+  syncTotals();
+}
+function getItems(){
+  return [...document.querySelectorAll('#itemsBody tr')].map(tr=>({
+    detail: tr.querySelector('.it-detail').value,
+    amount: Number(tr.querySelector('.it-amt').value)||0
+  }));
+}
+function calc(){
+  const items=getItems();
+  const sub=items.reduce((a,i)=>a+i.amount,0);
+  const vat=Math.round(sub*7)/100;        // 7% rounded to 2 dp
+  const net=Math.round((sub+vat)*100)/100;
+  return {items,sub,vat,net};
+}
+function syncTotals(){
+  document.querySelectorAll('#itemsBody tr').forEach((tr,i)=>tr.querySelector('.rownum').textContent=i+1);
+  const {sub,vat,net}=calc();
+  $('totSummary').innerHTML=`
+    <div class="line"><span>รวมเงิน / Total</span><b>${fmt(sub)}</b></div>
+    <div class="line"><span>ภาษีมูลค่าเพิ่ม (VAT 7%)</span><b>${fmt(vat)}</b></div>
+    <div class="line net"><span>ยอดเงินสุทธิ / Net Amount</span><span>${fmt(net)} บาท</span></div>`;
+}
+
+/* ---------- preview ---------- */
+function fmtDate(v){
+  if(!v) return '';
+  const d=new Date(v); if(isNaN(d)) return v;
+  return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+(d.getFullYear()+543); // พ.ศ.
+}
+function val(id){ const el=$(id); return el?el.value:''; }
+function buildInvoiceHTML(isCopy){
+  const {items,sub,vat,net}=calc();
+  let rows='';
+  items.forEach((it,i)=>{
+    rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td><td class="c-amt">${fmt(it.amount)}</td></tr>`;
+  });
+  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td class="c-amt">0.00</td></tr>`;
+  const phone=val('sellerPhone');
+  const note=val('docNote');
+  const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
+  return `
+  <div class="inv-corner"><span>1</span></div>
+  <div class="inv-head">
+    <div class="logo"><img src="${logoData||DEFAULT_LOGO}"></div>
+    <div class="co">
+      <div class="th">${esc(val('sellerThai'))}</div>
+      <div class="en">${esc(val('sellerEn'))}</div>
+      <div>${nl2br(val('sellerAddr'))}</div>
+      <div>เลขประจำตัวผู้เสียภาษี ${esc(val('sellerTax'))}</div>
+      ${phone?`<div>เบอร์โทร ${esc(phone)}</div>`:''}
+    </div>
+    <div class="doc-title">
+      <div class="t">ใบแจ้งหนี้</div>
+      <div class="copy">${isCopy?'สำเนา (Copy)':'ต้นฉบับ (Original)'}</div>
+      <div class="meta-box">
+        <div class="l"><b>เลขที่</b><span>${esc(val('docNo'))}</span></div>
+        <div class="l"><b>วันที่</b><span>${fmtDate(val('docDate'))}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cust">
+    <div class="hd">ลูกค้า / Customer</div>
+    <div>${esc(val('custName'))}</div>
+    <div>${nl2br(val('custAddr'))}</div>
+    <div>เลขประจำตัวผู้เสียภาษี ${esc(val('custTax'))}</div>
+  </div>
+
+  <table class="lines">
+    <thead><tr>
+      <th class="c c-no">#</th>
+      <th class="l">รายละเอียด</th>
+      <th class="c-amt">จำนวนเงิน</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="totals"><table>
+    <tr><td class="lab">รวมเป็นเงิน</td><td class="val">${fmt(sub)} บาท</td></tr>
+    <tr><td class="lab">ภาษีมูลค่าเพิ่ม 7%</td><td class="val">${fmt(vat)} บาท</td></tr>
+    <tr class="net"><td class="lab">ยอดเงินสุทธิ / Net Amount</td><td class="val">${fmt(net)} บาท</td></tr>
+  </table></div>
+  <div class="baht">(ตัวอักษร) ${esc(bahtText(net))}</div>
+
+  ${note?`<div class="note"><span class="hd">หมายเหตุ</span><br>${nl2br(note)}</div>`:''}
+
+  <div class="sign">
+    <div class="slot">
+      <div class="nm">&nbsp;</div>
+      <div class="two"><div><div class="ln"></div>ผู้รับแจ้ง</div><div><div class="ln"></div>วันที่</div></div>
+    </div>
+    <div class="slot">
+      <div class="nm">ในนาม ${esc(sellerName)}</div>
+      <div class="two"><div><div class="ln"></div>ผู้มีอำนาจลงนาม</div><div><div class="ln"></div>วันที่</div></div>
+    </div>
+  </div>`;
+}
+function renderPreview(scroll){
+  $('emptyPreview').classList.add('hidden');
+  $('paper').classList.remove('hidden');
+  $('paper').innerHTML=buildInvoiceHTML($('copyToggle').checked);
+  if(scroll) $('paperScroll').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ---------- validation ---------- */
+function validate(){
+  const errs=[];
+  if(!$('custName').value.trim()) errs.push('กรุณากรอกชื่อลูกค้า');
+  if(!$('docNo').value.trim()) errs.push('กรุณากรอกเลขที่ใบแจ้งหนี้');
+  if(!$('docDate').value) errs.push('กรุณาเลือกวันที่');
+  const {items,sub}=calc();
+  if(items.length===0 || sub<=0) errs.push('กรุณาเพิ่มรายการอย่างน้อย 1 รายการ พร้อมจำนวนเงิน');
+  return errs;
+}
+function setStatus(msg,type){
+  const el=$('formStatus'); el.className='status show '+type; el.innerHTML=msg;
+}
+
+/* ---------- PDF generation ---------- */
+async function generatePDF(){
+  const errs=validate();
+  if(errs.length){ setStatus('⚠ '+errs.join('<br>⚠ '),'err'); return; }
+  renderPreview();
+  const btn=$('btnPdf'); btn.disabled=true; setStatus('⏳ กำลังสร้าง PDF...','info');
+  try{
+    const {net}=calc();
+    const node=$('paper');
+    const canvas=await html2canvas(node,{scale:2,useCORS:true,backgroundColor:'#fff'});
+    const img=canvas.toDataURL('image/jpeg',0.95);
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF('p','mm','a4');
+    const pw=210, ph=297;
+    const iw=pw, ih=canvas.height*pw/canvas.width;
+    let pos=0, left=ih;
+    pdf.addImage(img,'JPEG',0,pos,iw,ih);
+    left-=ph;
+    while(left>0){ pos-=ph; pdf.addPage(); pdf.addImage(img,'JPEG',0,pos,iw,ih); left-=ph; }
+    const fname=(($('docNo').value||'invoice').replace(/[^\w\-]/g,'_'))+'.pdf';
+    pdf.save(fname);
+
+    // save to history (Drive backend or localStorage)
+    const firstDetail=(getItems()[0]?.detail||'').split('\n')[0].slice(0,60);
+    const meta={
+      no:$('docNo').value, customer:$('custName').value, date:$('docDate').value,
+      net:net, createdAt:new Date().toISOString(), filename:fname,
+      subject:firstDetail, status:'open'
+    };
+    const b64=pdf.output('datauristring').split(',')[1];
+    await saveHistory(meta,b64);
+    setStatus('✅ สร้าง PDF สำเร็จ และบันทึกประวัติแล้ว','ok');
+  }catch(e){
+    console.error(e); setStatus('❌ เกิดข้อผิดพลาด: '+e.message,'err');
+  }finally{ btn.disabled=false; }
+}
+
+/* ---------- history storage ---------- */
+async function saveHistory(meta,b64){
+  if(CONFIG.SCRIPT_URL){
+    try{
+      await fetch(CONFIG.SCRIPT_URL,{
+        method:'POST',
+        body:JSON.stringify({action:'save',folderId:CONFIG.DRIVE_FOLDER_ID,meta,pdfBase64:b64})
+      });
+      return;
+    }catch(e){ console.warn('Drive save failed, fallback to local',e); }
+  }
+  const list=JSON.parse(localStorage.getItem('invoices')||'[]');
+  list.unshift({...meta, _localPdf:'data:application/pdf;base64,'+b64});
+  localStorage.setItem('invoices',JSON.stringify(list.slice(0,100)));
+}
+
+let histData=[]; let histFilter='all';
+const STATUS_META={
+  open:{cls:'s-open',label:'ค้างชำระ'}, paid:{cls:'s-paid',label:'ชำระแล้ว'},
+  overdue:{cls:'s-overdue',label:'เกินกำหนด'}, draft:{cls:'s-draft',label:'ร่าง'}
+};
+const STATUS_CYCLE=['open','paid','overdue','draft'];
+const AVA_COLORS=['#4f6bff','#7c3aed','#0ea5e9','#f59e0b','#ec4899','#10b981','#ef4444','#6366f1'];
+function avaColor(s){ let h=0; for(const c of (s||'?')) h=(h*31+c.charCodeAt(0))%AVA_COLORS.length; return AVA_COLORS[h]; }
+
+async function loadHistory(){
+  $('histEmpty').classList.add('hidden');
+  let list=[]; let source='';
+  if(CONFIG.SCRIPT_URL){
+    try{
+      const r=await fetch(CONFIG.SCRIPT_URL+'?action=list&folderId='+encodeURIComponent(CONFIG.DRIVE_FOLDER_ID));
+      const data=await r.json();
+      list=data.items||[];
+      source='📁 ข้อมูลจาก Google Drive';
+    }catch(e){ source='⚠ เชื่อมต่อ Drive ไม่ได้ — แสดงข้อมูลในเครื่องแทน'; }
+  }
+  if(!CONFIG.SCRIPT_URL || (list.length===0 && source.startsWith('⚠'))){
+    list=JSON.parse(localStorage.getItem('invoices')||'[]');
+    if(!CONFIG.SCRIPT_URL) source='💾 ยังไม่ได้ตั้งค่า Drive — เก็บประวัติในเบราว์เซอร์';
+  }
+  histData=list.map(it=>({...it, status: it.status||'open'}));
+  $('histSource').textContent=source+' · '+histData.length+' รายการ';
+  renderHist();
+}
+function setFilter(f){
+  histFilter=f;
+  document.querySelectorAll('.fpill').forEach(b=>b.classList.toggle('active',b.dataset.f===f));
+  renderHist();
+}
+function renderHist(){
+  // counts
+  const counts={all:histData.length,draft:0,open:0,overdue:0,paid:0};
+  histData.forEach(it=>{ counts[it.status]=(counts[it.status]||0)+1; });
+  Object.keys(counts).forEach(k=>{ const el=$('c-'+k); if(el) el.textContent=counts[k]; });
+  $('histCount').textContent=histData.length;
+
+  const q=($('histSearch').value||'').toLowerCase().trim();
+  let rows=histData.filter(it=>histFilter==='all'||it.status===histFilter);
+  if(q) rows=rows.filter(it=>((it.no||'')+' '+(it.customer||'')+' '+(it.subject||'')).toLowerCase().includes(q));
+
+  const body=$('histBody'); body.innerHTML='';
+  if(rows.length===0){ $('histEmpty').classList.remove('hidden'); return; }
+  $('histEmpty').classList.add('hidden');
+  rows.forEach((it)=>{
+    const idx=histData.indexOf(it);
+    const sm=STATUS_META[it.status]||STATUS_META.open;
+    const initial=(it.customer||'?').replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
+    let dl='—';
+    if(it.downloadUrl) dl=`<a class="link" href="${it.downloadUrl}" target="_blank">⬇ ดาวน์โหลด</a>`;
+    else if(it.webViewLink) dl=`<a class="link" href="${it.webViewLink}" target="_blank">⬇ เปิด</a>`;
+    else if(it._localPdf) dl=`<a class="link" href="${it._localPdf}" download="${it.filename||'invoice.pdf'}">⬇ ดาวน์โหลด</a>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><div class="numcell"><span class="ic">📄</span>${esc(it.no||'-')}</div></td>
+      <td><div class="client"><span class="avatar" style="background:${avaColor(it.customer)}">${esc(initial)}</span>${esc(it.customer||'-')}</div></td>
+      <td>${esc(fmtDate(it.date))}</td>
+      <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
+      <td><button class="spill ${sm.cls}" title="คลิกเพื่อเปลี่ยนสถานะ" onclick="cycleStatus(${idx})">${sm.label}</button></td>
+      <td class="subj">${esc(it.subject||'-')}</td>
+      <td style="text-align:right">${dl}</td>`;
+    body.appendChild(tr);
+  });
+}
+function cycleStatus(idx){
+  const it=histData[idx];
+  const next=STATUS_CYCLE[(STATUS_CYCLE.indexOf(it.status)+1)%STATUS_CYCLE.length];
+  it.status=next;
+  // persist
+  if(CONFIG.SCRIPT_URL && it.fileId){
+    fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'updateStatus',folderId:CONFIG.DRIVE_FOLDER_ID,fileId:it.fileId,status:next})}).catch(()=>{});
+  }else{
+    const local=JSON.parse(localStorage.getItem('invoices')||'[]');
+    const m=local.find(x=>x.no===it.no && x.createdAt===it.createdAt);
+    if(m){ m.status=next; localStorage.setItem('invoices',JSON.stringify(local)); }
+  }
+  renderHist();
+}
+
+/* ---------- tabs ---------- */
+function showTab(t){
+  $('tab-create').classList.toggle('active',t==='create');
+  $('tab-history').classList.toggle('active',t==='history');
+  $('view-create').classList.toggle('hidden',t!=='create');
+  $('view-history').classList.toggle('hidden',t!=='history');
+  if(t==='history') loadHistory();
+}
+function resetForm(){
+  ['custName','custAddr','custTax','docNo'].forEach(id=>$(id).value='');
+  $('itemsBody').innerHTML=''; addItem();
+  $('emptyPreview').classList.remove('hidden'); $('paper').classList.add('hidden');
+  setStatus('','');
+  $('formStatus').className='status';
+}
+
+/* ---------- live render: กรอกซ้าย → render ขวา ทันที ---------- */
+let liveTimer=null;
+function liveRender(){
+  clearTimeout(liveTimer);
+  liveTimer=setTimeout(()=>renderPreview(false),120); // debounce
+}
+
+/* ---------- init ---------- */
+(function init(){
+  $('docDate').value=new Date().toISOString().slice(0,10);
+  // auto doc number suggestion
+  const d=new Date();
+  $('docNo').value='INV-'+d.getFullYear().toString().slice(-2)+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-001';
+  addItem('ค่าตอบแทนหลัก (Base GP) และ ค่าขนส่งสินค้า (Logistic Cost)\nประจำเดือน ........... 25..','');
+  applyLogoThumb();
+  // live update preview on any input/change in the create view
+  $('view-create').addEventListener('input',liveRender);
+  $('view-create').addEventListener('change',liveRender);
+  renderPreview(false); // show preview immediately
+})();
+</script>
+</body>
+</html>
