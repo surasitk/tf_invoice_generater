@@ -156,6 +156,10 @@
   .statsec .sh{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fafbff;border-bottom:1px solid var(--line)}
   .statsec .sh .ttl{font-weight:700}
   .statsec .sh .sum{margin-left:auto;font-weight:700;color:var(--ink)}
+  /* Vendor */
+  .vlogo{width:38px;height:38px;border-radius:9px;object-fit:contain;border:1px solid var(--line);background:#fff}
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,25,50,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+  .modal-card{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto}
   .hidden{display:none !important}
 </style>
 </head>
@@ -168,6 +172,7 @@
   <div class="tabs">
     <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ สร้างใบแจ้งหนี้</button>
     <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 แดชบอร์ด</button>
+    <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 ประวัติ (History)</button>
   </div>
 </header>
@@ -195,8 +200,15 @@
       </div>
 
       <div class="section-title">ลูกค้า / Customer</div>
-      <div class="field"><label>ชื่อลูกค้า / Customers</label><input id="custName" placeholder="บริษัท ... จำกัด"></div>
-      <div class="field"><label>ที่อยู่ / Address</label><textarea id="custAddr" placeholder="ที่อยู่ลูกค้า"></textarea></div>
+      <div class="field">
+        <label>ชื่อลูกค้า / Customers (เลือกจาก Vendor)</label>
+        <div style="display:flex;gap:8px">
+          <select id="custSelect" onchange="onVendorSelect()" style="flex:1"><option value="">— เลือกลูกค้า —</option></select>
+          <button class="btn ghost" type="button" onclick="openVendorModal()" style="white-space:nowrap">+ Vendor ใหม่</button>
+        </div>
+        <input type="hidden" id="custName">
+      </div>
+      <div class="field"><label>ที่อยู่ / Address</label><textarea id="custAddr" placeholder="เลือก Vendor แล้วเติมอัตโนมัติ"></textarea></div>
       <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input id="custTax" placeholder="0000000000000"></div>
 
       <div class="section-title">เอกสาร / Document</div>
@@ -259,6 +271,76 @@
     <div class="empty-preview hidden" id="dashEmpty">ยังไม่มีข้อมูลใบแจ้งหนี้</div>
 
     <div id="dashDetail" class="hidden"></div>
+  </div>
+</div>
+
+<!-- ================= VENDOR TAB ================= -->
+<div class="wrap hidden" id="view-vendor">
+  <!-- list -->
+  <div class="card" id="vendorListView">
+    <div class="toolbar">
+      <div>
+        <h2 style="margin:0">Vendor / ลูกค้า</h2>
+        <div class="hint">รายชื่อลูกค้า เรียงตามชื่อ A–Z · ยอดรวมไม่นับใบที่ยกเลิก</div>
+      </div>
+      <button class="btn ghost" style="margin-left:auto" onclick="loadVendors()">🔄 รีเฟรช</button>
+      <button class="btn" onclick="openVendorForm()">+ New Vendor</button>
+    </div>
+    <div class="status info show" id="vendorSource"></div>
+    <table class="htable">
+      <thead><tr>
+        <th style="width:54px"></th>
+        <th>ชื่อ Vendor</th>
+        <th>ที่อยู่</th>
+        <th style="width:150px">เลขผู้เสียภาษี</th>
+        <th style="width:140px;text-align:right">ยอดรวม (บาท)</th>
+        <th style="width:90px"></th>
+      </tr></thead>
+      <tbody id="vendorBody"></tbody>
+    </table>
+    <div class="empty-preview hidden" id="vendorEmpty">ยังไม่มี Vendor — กด "New Vendor" เพื่อเพิ่ม</div>
+  </div>
+
+  <!-- create / edit form -->
+  <div class="card hidden" id="vendorFormView">
+    <div class="dash-back" onclick="closeVendorForm()">← กลับไปรายชื่อ Vendor</div>
+    <h2 id="vendorFormTitle" style="margin:0 0 14px">สร้าง Vendor ใหม่</h2>
+    <input type="hidden" id="vendorId">
+    <div class="field">
+      <label>โลโก้ Vendor (อัปโหลด .png/.jpg)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <img id="vendorLogoThumb" style="width:46px;height:46px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff">
+        <input type="file" id="vendorLogoFile" accept="image/*" onchange="onVendorLogoUpload(event)" style="flex:1;border:none;padding:0;background:none">
+        <button class="icon-btn" title="ลบโลโก้" onclick="clearVendorLogo()">×</button>
+      </div>
+    </div>
+    <div class="field"><label>Vendor name *</label><input id="vendorName" placeholder="บริษัท ... จำกัด"></div>
+    <div class="field"><label>Address</label><textarea id="vendorAddr" placeholder="ที่อยู่"></textarea></div>
+    <div class="field"><label>TAX ID</label><input id="vendorTax" placeholder="0000000000000"></div>
+    <div class="actions">
+      <button class="btn green" onclick="saveVendorForm()">💾 Save</button>
+      <button class="btn ghost" onclick="closeVendorForm()">ยกเลิก</button>
+    </div>
+    <div class="status" id="vendorFormStatus"></div>
+  </div>
+</div>
+
+<!-- ============ VENDOR MODAL (popup จากหน้าใบแจ้งหนี้) ============ -->
+<div id="vendorModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2 style="margin:0 0 12px">สร้าง Vendor ใหม่</h2>
+    <div class="field"><label>Vendor name *</label><input id="mvName" placeholder="บริษัท ... จำกัด"></div>
+    <div class="field"><label>Address</label><textarea id="mvAddr" placeholder="ที่อยู่"></textarea></div>
+    <div class="field"><label>TAX ID</label><input id="mvTax" placeholder="0000000000000"></div>
+    <div class="field">
+      <label>โลโก้ (ถ้ามี)</label>
+      <input type="file" id="mvLogoFile" accept="image/*" onchange="onModalLogoUpload(event)">
+    </div>
+    <div class="actions">
+      <button class="btn green" onclick="saveVendorModal()">บันทึกและใช้</button>
+      <button class="btn ghost" onclick="closeVendorModal()">ยกเลิก</button>
+    </div>
+    <div class="status" id="mvStatus"></div>
   </div>
 </div>
 
@@ -791,19 +873,131 @@ function cycleStatus(idx){
   renderHist();
 }
 
+/* ============== VENDOR PROFILE ============== */
+let vendorData=[]; let vendorLogoData=''; let modalLogoData='';
+async function fetchVendors(){
+  if(window.FB_READY && window.fbVendorList){
+    try{ vendorData=await window.fbVendorList(); return vendorData; }catch(e){ console.warn('vendor fetch fail',e); }
+  }
+  vendorData=JSON.parse(localStorage.getItem('vendors')||'[]');
+  return vendorData;
+}
+async function saveVendor(v){
+  if(window.FB_READY && window.fbVendorSave){
+    try{ return await window.fbVendorSave(v); }catch(e){ console.warn('vendor save fail',e); }
+  }
+  const list=JSON.parse(localStorage.getItem('vendors')||'[]');
+  if(v.id){ const i=list.findIndex(x=>x.id===v.id); if(i>=0) list[i]=v; else list.push(v); }
+  else { v.id='V_'+Date.now(); list.push(v); }
+  localStorage.setItem('vendors',JSON.stringify(list));
+  return v;
+}
+function vendorTotal(name){
+  return histData.filter(i=>(i.customer||'')===name && i.status!=='cancelled')
+                 .reduce((a,i)=>a+(Number(i.net)||0),0);
+}
+async function loadVendors(){
+  closeVendorForm();
+  await fetchVendors();
+  await fetchInvoices(); // เพื่อคำนวณยอดรวมต่อ vendor
+  $('vendorSource').textContent=(window.FB_READY?'☁️ ข้อมูลจาก Firebase (Cloud)':'💾 เก็บในเบราว์เซอร์')+' · '+vendorData.length+' vendor';
+  renderVendorList();
+  populateVendorDropdown();
+}
+function renderVendorList(){
+  const body=$('vendorBody'); body.innerHTML='';
+  const list=[...vendorData].sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  if(list.length===0){ $('vendorEmpty').classList.remove('hidden'); return; }
+  $('vendorEmpty').classList.add('hidden');
+  list.forEach(v=>{
+    const initial=(v.name||'?').replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
+    const logo=v.logo?`<img class="vlogo" src="${v.logo}">`:`<span class="avatar" style="background:${avaColor(v.name||'?')}">${esc(initial)}</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${logo}</td>
+      <td style="font-weight:600">${esc(v.name||'-')}</td>
+      <td class="subj">${esc((v.address||'').split('\n')[0])}</td>
+      <td>${esc(v.taxId||'-')}</td>
+      <td style="text-align:right;font-weight:600">${fmt(vendorTotal(v.name))}</td>
+      <td style="text-align:right"><a class="link" onclick="openVendorForm('${v.id}')">✏️ แก้ไข</a></td>`;
+    body.appendChild(tr);
+  });
+}
+function applyVendorLogoThumb(){ const t=$('vendorLogoThumb'); if(t) t.src=vendorLogoData||DEFAULT_LOGO; }
+function onVendorLogoUpload(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ vendorLogoData=r.result; applyVendorLogoThumb(); }; r.readAsDataURL(f); }
+function clearVendorLogo(){ vendorLogoData=''; applyVendorLogoThumb(); const lf=$('vendorLogoFile'); if(lf) lf.value=''; }
+function openVendorForm(id){
+  $('vendorListView').classList.add('hidden');
+  $('vendorFormView').classList.remove('hidden');
+  $('vendorFormStatus').className='status';
+  const v=id?vendorData.find(x=>x.id===id):null;
+  $('vendorFormTitle').textContent=v?'แก้ไข Vendor':'สร้าง Vendor ใหม่';
+  $('vendorId').value=v?v.id:'';
+  $('vendorName').value=v?(v.name||''):'';
+  $('vendorAddr').value=v?(v.address||''):'';
+  $('vendorTax').value=v?(v.taxId||''):'';
+  vendorLogoData=v?(v.logo||''):''; applyVendorLogoThumb();
+  const lf=$('vendorLogoFile'); if(lf) lf.value='';
+}
+function closeVendorForm(){ $('vendorFormView').classList.add('hidden'); $('vendorListView').classList.remove('hidden'); }
+async function saveVendorForm(){
+  const name=$('vendorName').value.trim();
+  if(!name){ const s=$('vendorFormStatus'); s.className='status show err'; s.textContent='⚠ กรุณากรอกชื่อ Vendor'; return; }
+  const v={ id:$('vendorId').value||undefined, name, address:$('vendorAddr').value, taxId:$('vendorTax').value, logo:vendorLogoData||'', createdAt:new Date().toISOString() };
+  const s=$('vendorFormStatus'); s.className='status show info'; s.textContent='⏳ กำลังบันทึก...';
+  await saveVendor(v);
+  await fetchVendors();
+  closeVendorForm(); renderVendorList(); populateVendorDropdown();
+}
+
+/* ---- dropdown บนหน้าใบแจ้งหนี้ ---- */
+function populateVendorDropdown(){
+  const sel=$('custSelect'); if(!sel) return;
+  const cur=sel.value;
+  const list=[...vendorData].sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  sel.innerHTML='<option value="">— เลือกลูกค้า —</option>'+list.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  if(cur && list.some(v=>v.id===cur)) sel.value=cur;
+}
+function onVendorSelect(){
+  const v=vendorData.find(x=>x.id===$('custSelect').value);
+  if(v){ $('custName').value=v.name||''; $('custAddr').value=v.address||''; $('custTax').value=v.taxId||''; }
+  else { $('custName').value=''; }
+  renderPreview(false);
+}
+
+/* ---- modal popup สร้าง vendor จากหน้าใบแจ้งหนี้ ---- */
+function openVendorModal(){ $('vendorModal').classList.remove('hidden'); ['mvName','mvAddr','mvTax'].forEach(id=>$(id).value=''); modalLogoData=''; const lf=$('mvLogoFile'); if(lf) lf.value=''; $('mvStatus').className='status'; }
+function closeVendorModal(){ $('vendorModal').classList.add('hidden'); }
+function onModalLogoUpload(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ modalLogoData=r.result; }; r.readAsDataURL(f); }
+async function saveVendorModal(){
+  const name=$('mvName').value.trim();
+  if(!name){ const s=$('mvStatus'); s.className='status show err'; s.textContent='⚠ กรุณากรอกชื่อ Vendor'; return; }
+  const v={ name, address:$('mvAddr').value, taxId:$('mvTax').value, logo:modalLogoData||'', createdAt:new Date().toISOString() };
+  const s=$('mvStatus'); s.className='status show info'; s.textContent='⏳ กำลังบันทึก...';
+  const rec=await saveVendor(v);
+  await fetchVendors(); populateVendorDropdown();
+  $('custSelect').value=rec.id; onVendorSelect();
+  closeVendorModal();
+  setStatus('✅ เพิ่ม Vendor "'+name+'" และเลือกใช้แล้ว','ok');
+}
+window.onFbReady=async function(){ try{ await fetchVendors(); populateVendorDropdown(); }catch(e){} };
+
 /* ---------- tabs ---------- */
 function showTab(t){
   $('tab-create').classList.toggle('active',t==='create');
   $('tab-dashboard').classList.toggle('active',t==='dashboard');
+  $('tab-vendor').classList.toggle('active',t==='vendor');
   $('tab-history').classList.toggle('active',t==='history');
   $('view-create').classList.toggle('hidden',t!=='create');
   $('view-dashboard').classList.toggle('hidden',t!=='dashboard');
+  $('view-vendor').classList.toggle('hidden',t!=='vendor');
   $('view-history').classList.toggle('hidden',t!=='history');
   if(t==='history') loadHistory();
   if(t==='dashboard') loadDashboard();
+  if(t==='vendor') loadVendors();
 }
 function resetForm(){
   ['custName','custAddr','custTax','docNo'].forEach(id=>$(id).value='');
+  const cs=$('custSelect'); if(cs) cs.value='';
   $('itemsBody').innerHTML=''; addItem();
   $('emptyPreview').classList.remove('hidden'); $('paper').classList.add('hidden');
   setStatus('','');
@@ -829,6 +1023,7 @@ function liveRender(){
   $('view-create').addEventListener('input',liveRender);
   $('view-create').addEventListener('change',liveRender);
   renderPreview(false); // show preview immediately
+  fetchVendors().then(()=>populateVendorDropdown()); // เติม dropdown ลูกค้า
 })();
 </script>
 
@@ -886,10 +1081,25 @@ if (firebaseConfig.projectId) {
     window.fbSetLogo = async (dataUri) => setDoc(doc(db, "settings", "company"), { logo: dataUri }, { merge: true });
     window.fbGetLogo = async () => { const s = await getDoc(doc(db, "settings", "company")); return s.exists() ? (s.data().logo || null) : null; };
 
+    // Vendor profile (collection: vendors)
+    window.fbVendorSave = async (v) => {
+      const id = v.id || ("V_" + Date.now());
+      const rec = { ...v, id };
+      await setDoc(doc(db, "vendors", id), rec, { merge: true });
+      return rec;
+    };
+    window.fbVendorList = async () => {
+      let snap;
+      try { snap = await getDocs(query(collection(db, "vendors"), orderBy("name"))); }
+      catch (e) { snap = await getDocs(collection(db, "vendors")); }
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    };
+
     window.FB_READY = true;
     console.log("Firebase (Firestore) backend ready");
     // ดึงโลโก้จาก Firebase มาใช้เป็นค่าเริ่มต้นในฟอร์ม
     window.fbGetLogo().then(l => { if (l && window.applyCompanyLogo) window.applyCompanyLogo(l); }).catch(() => {});
+    if (window.onFbReady) window.onFbReady();
   } catch (e) {
     console.warn("Firebase init failed:", e);
     window.FB_READY = false;
