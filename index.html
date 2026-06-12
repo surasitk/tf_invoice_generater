@@ -942,6 +942,7 @@ async function generatePDF(){
       custAddr:$('custAddr').value, custTax:$('custTax').value,
       vendorId:($('custSelect')?$('custSelect').value:'')||'',
       clientId:(function(){const v=vendorData.find(x=>x.id===val('custSelect'));return v?clientCode(v):'';})(),
+      createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''),
       items:getItems().map(i=>({detail:i.detail, amount:i.amount}))
     };
     const b64=pdf.output('datauristring').split(',')[1];
@@ -1208,7 +1209,7 @@ function renderHist(){
       <td>${esc(fmtDate(it.date))}</td>
       <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
       <td>${statusSelectHTML(idx, it.status)}</td>
-      <td class="subj">${esc(it.subject||'-')}</td>
+      <td class="subj">${esc(it.subject||'-')}${it.createdBy?`<br><span style="font-size:10px;color:var(--muted)">โดย ${esc(it.createdBy)}</span>`:''}</td>
       <td>${typeBadge}</td>
       <td style="text-align:right">${dl}${taxLink}${(dt==='qt'&&perm().create)?`<br><a class="link" style="color:#3b54e0" onclick="convertQtToInvoice(${idx})">→ ออก Invoice</a>`:''}${perm().create?`<br><a class="link" onclick="duplicateDoc(${idx})">📋 คัดลอก/ออกใหม่</a>`:''}</td>`;
     body.appendChild(tr);
@@ -1498,6 +1499,7 @@ async function generateTaxPDF(){
       custAddr:val('tcustAddr'), custTax:val('tcustTax'),
       clientId:(function(){const v=vendorData.find(x=>x.id===val('tcustSelect'));return v?clientCode(v):(taxSource&&taxSource.clientId)||'';})(),
       sourceInvoiceId:srcId, sourceInvoiceNo:(taxSource?taxSource.no:''),
+      createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''),
       items:getTaxItems().map(i=>({detail:i.detail,qty:i.qty,unit:i.unit,price:i.price,amount:i.amount})) };
     const b64=pdf.output('datauristring').split(',')[1];
     const savedRec=await saveHistory(meta,b64);
@@ -1725,7 +1727,15 @@ function applyRoleUI(){
   const ui=$('userInfo'); ui.classList.remove('hidden');
   ui.innerHTML=`<span class="ava">${esc(initial)}</span>
     <div><div class="nm">${esc(currentUser.name)}</div><div class="rl">${esc(currentUser.role)}</div></div>
+    <button onclick="doChangePassword()" style="color:var(--brand)">🔑 รหัสผ่าน</button>
     <button onclick="doLogout()">ออกจากระบบ</button>`;
+}
+function doChangePassword(){
+  if(!currentUser||!window.fbResetPassword) return;
+  if(!confirm('ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ '+currentUser.email+' ?')) return;
+  window.fbResetPassword(currentUser.email)
+    .then(()=>alert('✅ ส่งลิงก์เปลี่ยนรหัสผ่านไปที่ '+currentUser.email+' แล้ว เช็คอีเมล (และ Spam)'))
+    .catch(e=>alert('❌ '+friendlyErr(e)));
 }
 
 /* ---- Admin: users ---- */
@@ -1881,7 +1891,7 @@ async function generateQuotationPDF(){
     const fname=((val('qdocNo')||'quotation').replace(/[^\w\-]/g,'_'))+'.pdf'; pdf.save(fname);
     const firstDetail=(getQItems()[0]?.detail||'').split('\n')[0].slice(0,60);
     const selV=vendorData.find(x=>x.id===val('qcustSelect'));
-    const meta={ no:val('qdocNo'), customer:val('qcustName'), date:val('qdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'qt', custAddr:val('qcustAddr'), custTax:val('qcustTax'), vendorId:val('qcustSelect'), clientId:(selV?clientCode(selV):''), items:getQItems().map(i=>({detail:i.detail,amount:i.amount})) };
+    const meta={ no:val('qdocNo'), customer:val('qcustName'), date:val('qdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'qt', custAddr:val('qcustAddr'), custTax:val('qcustTax'), vendorId:val('qcustSelect'), clientId:(selV?clientCode(selV):''), createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''), items:getQItems().map(i=>({detail:i.detail,amount:i.amount})) };
     const b64=pdf.output('datauristring').split(',')[1];
     await saveHistory(meta,b64);
     setQStatus('✅ สร้างใบเสนอราคาสำเร็จ และบันทึกแล้ว','ok');
