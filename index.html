@@ -251,8 +251,8 @@
 
       <div class="section-title">เอกสาร / Document</div>
       <div class="row2">
-        <div class="field"><label>เลขที่ / No.</label><input id="docNo" placeholder="INV-XXX-260612-001"></div>
-        <div class="field"><label>วันที่ / Date</label><input id="docDate" type="date"></div>
+        <div class="field"><label>เลขที่ / No. (รันอัตโนมัติ)</label><input id="docNo" placeholder="เลือกลูกค้าเพื่อรันเลข"></div>
+        <div class="field"><label>วันที่ / Date</label><input id="docDate" type="date" onchange="updateInvoiceNo()"></div>
       </div>
 
       <div class="section-title">รายการ / Items</div>
@@ -309,8 +309,8 @@
 
       <div class="section-title">Document</div>
       <div class="row2">
-        <div class="field"><label>เลขที่ / No.</label><input id="tdocNo" placeholder="INV2026110001"></div>
-        <div class="field"><label>วันที่ / Date</label><input id="tdocDate" type="date"></div>
+        <div class="field"><label>เลขที่ / No. (รันอัตโนมัติ)</label><input id="tdocNo" placeholder="เลือกลูกค้าเพื่อรันเลข"></div>
+        <div class="field"><label>วันที่ / Date</label><input id="tdocDate" type="date" onchange="updateTaxNo()"></div>
       </div>
       <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
       <div class="field">
@@ -410,6 +410,7 @@
       </div>
     </div>
     <div class="field"><label>Vendor name *</label><input id="vendorName" placeholder="บริษัท ... จำกัด"></div>
+    <div class="field"><label>Client ID (รหัสย่อ เช่น JAS, SIX) — ใช้ในเลขรันเอกสาร</label><input id="vendorClientId" placeholder="เช่น JAS" maxlength="10" style="text-transform:uppercase"></div>
     <div class="field"><label>Address</label><textarea id="vendorAddr" placeholder="ที่อยู่"></textarea></div>
     <div class="field"><label>TAX ID</label><input id="vendorTax" placeholder="0000000000000"></div>
     <div class="actions">
@@ -425,6 +426,7 @@
   <div class="modal-card">
     <h2 style="margin:0 0 12px">สร้าง Vendor ใหม่</h2>
     <div class="field"><label>Vendor name *</label><input id="mvName" placeholder="บริษัท ... จำกัด"></div>
+    <div class="field"><label>Client ID (รหัสย่อ)</label><input id="mvClientId" placeholder="เช่น JAS" maxlength="10" style="text-transform:uppercase"></div>
     <div class="field"><label>Address</label><textarea id="mvAddr" placeholder="ที่อยู่"></textarea></div>
     <div class="field"><label>TAX ID</label><input id="mvTax" placeholder="0000000000000"></div>
     <div class="field">
@@ -815,6 +817,7 @@ async function generatePDF(){
       subject:firstDetail, status:'open',
       custAddr:$('custAddr').value, custTax:$('custTax').value,
       vendorId:($('custSelect')?$('custSelect').value:'')||'',
+      clientId:(function(){const v=vendorData.find(x=>x.id===val('custSelect'));return v?clientCode(v):'';})(),
       items:getItems().map(i=>({detail:i.detail, amount:i.amount}))
     };
     const b64=pdf.output('datauristring').split(',')[1];
@@ -1235,6 +1238,7 @@ async function onTaxVendorSelect(){
   else { $('tcustName').value=''; $('tcustAddr').value=''; $('tcustTax').value=''; }
   taxSource=null;
   await populateTaxRefDropdown(v);
+  if(v) updateTaxNo();
   renderTaxPreview(false);
 }
 async function populateTaxRefDropdown(v){
@@ -1300,6 +1304,7 @@ async function generateTaxPDF(){
     const srcId=taxSource?(taxSource.id||taxSource.no):'';
     const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'paid', docType:'tax',
       custAddr:val('tcustAddr'), custTax:val('tcustTax'),
+      clientId:(function(){const v=vendorData.find(x=>x.id===val('tcustSelect'));return v?clientCode(v):(taxSource&&taxSource.clientId)||'';})(),
       sourceInvoiceId:srcId, sourceInvoiceNo:(taxSource?taxSource.no:''),
       items:getTaxItems().map(i=>({detail:i.detail,qty:i.qty,unit:i.unit,price:i.price,amount:i.amount})) };
     const b64=pdf.output('datauristring').split(',')[1];
@@ -1351,7 +1356,7 @@ function renderVendorList(){
     const logo=v.logo?`<img class="vlogo" src="${v.logo}">`:`<span class="avatar" style="background:${avaColor(v.name||'?')}">${esc(initial)}</span>`;
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${logo}</td>
-      <td style="font-weight:600">${esc(v.name||'-')}</td>
+      <td style="font-weight:600">${esc(v.name||'-')}${v.clientId?` <span class="badge">${esc(v.clientId)}</span>`:''}</td>
       <td class="subj">${esc((v.address||'').split('\n')[0])}</td>
       <td>${esc(v.taxId||'-')}</td>
       <td style="text-align:right;font-weight:600">${fmt(vendorTotal(v.name))}</td>
@@ -1370,6 +1375,7 @@ function openVendorForm(id){
   $('vendorFormTitle').textContent=v?'แก้ไข Vendor':'สร้าง Vendor ใหม่';
   $('vendorId').value=v?v.id:'';
   $('vendorName').value=v?(v.name||''):'';
+  $('vendorClientId').value=v?(v.clientId||''):'';
   $('vendorAddr').value=v?(v.address||''):'';
   $('vendorTax').value=v?(v.taxId||''):'';
   vendorLogoData=v?(v.logo||''):''; applyVendorLogoThumb();
@@ -1379,7 +1385,7 @@ function closeVendorForm(){ $('vendorFormView').classList.add('hidden'); $('vend
 async function saveVendorForm(){
   const name=$('vendorName').value.trim();
   if(!name){ const s=$('vendorFormStatus'); s.className='status show err'; s.textContent='⚠ กรุณากรอกชื่อ Vendor'; return; }
-  const v={ id:$('vendorId').value||undefined, name, address:$('vendorAddr').value, taxId:$('vendorTax').value, logo:vendorLogoData||'', createdAt:new Date().toISOString() };
+  const v={ id:$('vendorId').value||undefined, name, clientId:(val('vendorClientId')||'').trim().toUpperCase(), address:$('vendorAddr').value, taxId:$('vendorTax').value, logo:vendorLogoData||'', createdAt:new Date().toISOString() };
   const s=$('vendorFormStatus'); s.className='status show info'; s.textContent='⏳ กำลังบันทึก...';
   await saveVendor(v);
   await fetchVendors();
@@ -1392,22 +1398,65 @@ function populateVendorDropdown(){
   const opts='<option value="">— เลือกลูกค้า —</option>'+list.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
   ['custSelect','tcustSelect'].forEach(id=>{ const sel=$(id); if(!sel) return; const cur=sel.value; sel.innerHTML=opts; if(cur && list.some(v=>v.id===cur)) sel.value=cur; });
 }
+/* ===== เลขรันเอกสารอัตโนมัติ ===== */
+function pad3(n){ return ('00'+Math.max(0,n)).slice(-3); }
+function ymd6(dateStr){
+  const d=dateStr?new Date(dateStr):new Date();
+  if(isNaN(d)) return '000000';
+  return ('0'+(d.getFullYear()%100)).slice(-2)+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2);
+}
+function clientCode(v){
+  if(!v) return 'XXX';
+  const c=(v.clientId||'').trim().toUpperCase();
+  if(c) return c;
+  const en=(v.name||'').replace(/[^A-Za-z]/g,'');
+  return en?en.slice(0,3).toUpperCase():'XXX';
+}
+function genDocNo(type, cid, dateStr){
+  const ymd=ymd6(dateStr); cid=cid||'XXX';
+  const isTax=type==='tax', isQt=type==='qt';
+  const seqN=histData.filter(i=>{
+    const t = i.docType==='tax' ? 'tax' : (i.docType==='qt' ? 'qt' : 'inv');
+    return t===type && (i.clientId||'')===cid && ymd6(i.date)===ymd;
+  }).length + 1;
+  const seq=pad3(seqN);
+  if(type==='inv') return `INV-${cid}-${ymd}-${seq}`;
+  if(type==='tax') return `TAX-${cid}-${ymd}-${seq}`;
+  if(type==='qt')  return `${cid}-Q${ymd}-${seq}`;
+  return '';
+}
+async function updateInvoiceNo(){
+  const v=vendorData.find(x=>x.id===$('custSelect').value);
+  if(!v) return;
+  try{ await fetchInvoices(); }catch(e){}
+  $('docNo').value=genDocNo('inv', clientCode(v), val('docDate'));
+  renderPreview(false);
+}
+async function updateTaxNo(){
+  const v=vendorData.find(x=>x.id===$('tcustSelect').value);
+  if(!v) return;
+  try{ await fetchInvoices(); }catch(e){}
+  $('tdocNo').value=genDocNo('tax', clientCode(v), val('tdocDate'));
+  renderTaxPreview(false);
+}
+
 function onVendorSelect(){
   const v=vendorData.find(x=>x.id===$('custSelect').value);
   if(v){ $('custName').value=v.name||''; $('custAddr').value=v.address||''; $('custTax').value=v.taxId||''; }
   else { $('custName').value=''; }
+  updateInvoiceNo();
   renderPreview(false);
 }
 
 /* ---- modal popup สร้าง vendor จากหน้าใบแจ้งหนี้ ---- */
 let vendorModalTarget='custSelect';
-function openVendorModal(target){ vendorModalTarget=target||'custSelect'; $('vendorModal').classList.remove('hidden'); ['mvName','mvAddr','mvTax'].forEach(id=>$(id).value=''); modalLogoData=''; const lf=$('mvLogoFile'); if(lf) lf.value=''; $('mvStatus').className='status'; }
+function openVendorModal(target){ vendorModalTarget=target||'custSelect'; $('vendorModal').classList.remove('hidden'); ['mvName','mvClientId','mvAddr','mvTax'].forEach(id=>$(id).value=''); modalLogoData=''; const lf=$('mvLogoFile'); if(lf) lf.value=''; $('mvStatus').className='status'; }
 function closeVendorModal(){ $('vendorModal').classList.add('hidden'); }
 function onModalLogoUpload(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ modalLogoData=r.result; }; r.readAsDataURL(f); }
 async function saveVendorModal(){
   const name=$('mvName').value.trim();
   if(!name){ const s=$('mvStatus'); s.className='status show err'; s.textContent='⚠ กรุณากรอกชื่อ Vendor'; return; }
-  const v={ name, address:$('mvAddr').value, taxId:$('mvTax').value, logo:modalLogoData||'', createdAt:new Date().toISOString() };
+  const v={ name, clientId:(val('mvClientId')||'').trim().toUpperCase(), address:$('mvAddr').value, taxId:$('mvTax').value, logo:modalLogoData||'', createdAt:new Date().toISOString() };
   const s=$('mvStatus'); s.className='status show info'; s.textContent='⏳ กำลังบันทึก...';
   const rec=await saveVendor(v);
   await fetchVendors(); populateVendorDropdown();
@@ -1608,7 +1657,7 @@ function liveRender(){
   $('docDate').value=new Date().toISOString().slice(0,10);
   // auto doc number suggestion
   const d=new Date();
-  $('docNo').value='INV-'+d.getFullYear().toString().slice(-2)+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-001';
+  $('docNo').value=''; // เลขรันอัตโนมัติเมื่อเลือกลูกค้า
   addItem('ค่าตอบแทนหลัก (Base GP) และ ค่าขนส่งสินค้า (Logistic Cost)\nประจำเดือน ........... 25..','');
   loadLocalSettings(); // โหลด seller/company จาก localStorage (ก่อน Firebase พร้อม)
   applyLogoThumb();
@@ -1625,7 +1674,7 @@ function liveRender(){
   fetchVendors().then(()=>populateVendorDropdown()); // เติม dropdown ลูกค้า
   // ตั้งค่าฟอร์มใบกำกับภาษีเริ่มต้น
   $('tdocDate').value=new Date().toISOString().slice(0,10);
-  $('tdocNo').value='INV'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+'0001';
+  $('tdocNo').value=''; // เลขรันอัตโนมัติเมื่อเลือกลูกค้า
   addTaxItem('',1,'',''); renderTaxPreview(false);
   try{ $('authLogo').src=logoData||DEFAULT_LOGO; }catch(e){}
   // หน้าแรกหลัง login = Dashboard (จัดการใน handleAuthState) — ก่อน login จะเจอหน้า Login ก่อน
