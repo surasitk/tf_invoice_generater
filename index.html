@@ -179,10 +179,38 @@
   .vlogo{width:38px;height:38px;border-radius:9px;object-fit:contain;border:1px solid var(--line);background:#fff}
   .modal-overlay{position:fixed;inset:0;background:rgba(20,25,50,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
   .modal-card{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto}
+  /* Login gate */
+  .auth-gate{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:linear-gradient(135deg,#4f6bff 0%,#3b54e0 60%,#11297a 100%)}
+  .auth-card{background:#fff;border-radius:18px;padding:30px 28px;width:100%;max-width:380px;box-shadow:0 24px 70px rgba(0,0,0,.35);text-align:center}
+  .auth-logo{display:flex;justify-content:center;margin-bottom:6px}
+  .auth-logo img{width:64px;height:64px;object-fit:contain}
+  .auth-sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .auth-card .field{text-align:left}
+  .userinfo{display:flex;align-items:center;gap:10px;margin-left:14px;font-size:12.5px;color:var(--ink)}
+  .userinfo .nm{font-weight:700;line-height:1.1}
+  .userinfo .rl{font-size:11px;color:var(--muted)}
+  .userinfo .ava{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .userinfo button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--danger)}
   .hidden{display:none !important}
 </style>
 </head>
 <body>
+
+<!-- ================= LOGIN GATE ================= -->
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <div class="auth-logo"><img id="authLogo" alt="logo"></div>
+    <h1 style="margin:6px 0 2px;font-size:20px">Invoice Generator</h1>
+    <div class="auth-sub">เข้าสู่ระบบเพื่อใช้งาน</div>
+    <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="username" placeholder="you@company.com"></div>
+    <div class="field"><label>Password</label><input id="authPwd" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <button class="btn" style="width:100%;margin-top:4px" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div style="text-align:center;margin-top:12px"><a class="link" onclick="doForgot()">ลืมรหัสผ่าน / ตั้งรหัสผ่านครั้งแรก</a></div>
+    <div class="status" id="authStatus"></div>
+  </div>
+</div>
+
 <header class="appbar">
   <div>
     <h1>Invoice Generator</h1>
@@ -194,7 +222,9 @@
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
     <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-settings" onclick="showTab('settings')">⚙️ Settings</button>
+    <button class="tab hidden" id="tab-admin" onclick="showTab('admin')">👤 Admin</button>
   </div>
+  <div id="userInfo" class="userinfo hidden"></div>
 </header>
 
 <!-- ================= CREATE TAB ================= -->
@@ -426,6 +456,41 @@
     </div>
     <div class="actions"><button class="btn green" onclick="saveSettings()">💾 Save settings</button></div>
     <div class="status" id="settingsStatus"></div>
+  </div>
+</div>
+
+<!-- ================= ADMIN TAB ================= -->
+<div class="wrap hidden" id="view-admin">
+  <div class="card" style="max-width:560px">
+    <h2 style="margin:0 0 4px">สร้างผู้ใช้ / Create User</h2>
+    <div class="hint" style="margin-bottom:14px">กรอกข้อมูล แล้วกด Generate link — ระบบจะส่งลิงก์ตั้งรหัสผ่านไปที่อีเมลของผู้ใช้</div>
+    <div class="row2">
+      <div class="field"><label>First name *</label><input id="auFirst"></div>
+      <div class="field"><label>Last name *</label><input id="auLast"></div>
+    </div>
+    <div class="field"><label>Email *</label><input id="auEmail" type="email" placeholder="user@company.com"></div>
+    <div class="field"><label>Role *</label>
+      <select id="auRole">
+        <option value="admin">admin — ดูแลระบบ + จัดการผู้ใช้</option>
+        <option value="accountant">accountant — ออก/แก้/ยกเลิกเอกสาร</option>
+        <option value="staff" selected>staff — สร้างเอกสาร (แก้/ยกเลิกไม่ได้)</option>
+        <option value="viewer">viewer — ดู/ออกรายงานอย่างเดียว</option>
+      </select>
+    </div>
+    <div class="actions"><button class="btn green" onclick="adminCreateUser()">🔗 Generate link &amp; Create</button></div>
+    <div class="status" id="auStatus"></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="toolbar">
+      <h2 style="margin:0">ผู้ใช้ทั้งหมด / Users</h2>
+      <button class="btn ghost" style="margin-left:auto" onclick="loadAdminUsers()">🔄 รีเฟรช</button>
+    </div>
+    <table class="htable">
+      <thead><tr><th>ชื่อ</th><th>Email</th><th style="width:150px">Role</th><th style="width:110px">สถานะ</th><th style="width:130px">Login ล่าสุด</th><th style="width:150px"></th></tr></thead>
+      <tbody id="adminUsersBody"></tbody>
+    </table>
+    <div class="empty-preview hidden" id="adminUsersEmpty">ยังไม่มีผู้ใช้</div>
   </div>
 </div>
 
@@ -907,7 +972,7 @@ function openClient(idx){
     const sm=STATUS_META[s];
     const sum=items.reduce((a,i)=>a+(Number(i.net)||0),0);
     const rows=items.map(it=>{
-      const taxBtn = (s==='open') ? `<button class="btn" style="padding:4px 10px;font-size:11px;background:#88C326;border-color:#88C326;box-shadow:none;margin-right:8px" onclick="goCreateTaxFromInvoice('${it.id||it.no}')">→ ออกใบกำกับภาษี</button>` : '';
+      const taxBtn = (s==='open' && perm().create) ? `<button class="btn" style="padding:4px 10px;font-size:11px;background:#88C326;border-color:#88C326;box-shadow:none;margin-right:8px" onclick="goCreateTaxFromInvoice('${it.id||it.no}')">→ ออกใบกำกับภาษี</button>` : '';
       return `<tr>
       <td><span class="badge">${esc(it.no||'-')}</span></td>
       <td>${esc(fmtDate(it.date))}</td>
@@ -991,7 +1056,8 @@ const STATUS_OPTS=['open','paid','overdue','draft','cancelled'];
 function statusSelectHTML(idx, cur){
   const sm=STATUS_META[cur]||STATUS_META.open;
   const opts=STATUS_OPTS.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${STATUS_META[s].label}</option>`).join('');
-  return `<select class="spill ${sm.cls}" title="เปลี่ยนสถานะ — เลือกได้" onchange="setStatusDirect(${idx}, this.value)">${opts}</select>`;
+  const dis = perm().cancelEdit ? '' : 'disabled title="สิทธิ์ของคุณแก้ไขสถานะไม่ได้"';
+  return `<select class="spill ${sm.cls}" ${dis} title="เปลี่ยนสถานะ — เลือกได้" onchange="setStatusDirect(${idx}, this.value)">${opts}</select>`;
 }
 function setStatusDirect(idx, status){
   const it=histData[idx]; if(!it) return;
@@ -1337,9 +1403,144 @@ async function saveVendorModal(){
 }
 window.onFbReady=async function(){ try{ await fetchVendors(); populateVendorDropdown(); }catch(e){} };
 
+/* ============== AUTH / ROLES / ADMIN ============== */
+let currentUser=null;
+const ROLE_PERM={
+  admin:{create:true,cancelEdit:true,users:true,settings:true},
+  accountant:{create:true,cancelEdit:true,users:false,settings:true},
+  staff:{create:true,cancelEdit:false,users:false,settings:false},
+  viewer:{create:false,cancelEdit:false,users:false,settings:false}
+};
+function perm(){ return ROLE_PERM[currentUser&&currentUser.role] || ROLE_PERM.viewer; }
+function authMsg(m,t){ const el=$('authStatus'); if(el){ el.className='status show '+t; el.innerHTML=m; } }
+function friendlyErr(e){
+  const c=(e&&e.code)||'';
+  if(c.includes('invalid-credential')||c.includes('wrong-password')||c.includes('user-not-found')) return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+  if(c.includes('too-many-requests')) return 'พยายามหลายครั้งเกินไป ลองใหม่ภายหลัง';
+  if(c.includes('invalid-email')) return 'รูปแบบอีเมลไม่ถูกต้อง';
+  if(c.includes('email-already-in-use')) return 'อีเมลนี้มีอยู่แล้ว';
+  return (e&&e.message)||'เกิดข้อผิดพลาด';
+}
+function doLogin(){
+  const email=val('authEmail').trim(), pwd=val('authPwd');
+  if(!email||!pwd){ authMsg('กรอกอีเมลและรหัสผ่าน','err'); return; }
+  if(!window.fbLogin){ authMsg('ระบบยังโหลดไม่เสร็จ ลองใหม่อีกครั้ง','err'); return; }
+  authMsg('⏳ กำลังเข้าสู่ระบบ...','info');
+  window.fbLogin(email,pwd).catch(e=>authMsg('เข้าสู่ระบบไม่สำเร็จ: '+friendlyErr(e),'err'));
+}
+function doForgot(){
+  const email=val('authEmail').trim();
+  if(!email){ authMsg('กรอกอีเมลก่อน แล้วกดลิงก์นี้','err'); return; }
+  window.fbResetPassword(email).then(()=>authMsg('✅ ส่งลิงก์ตั้งรหัสผ่านไปที่อีเมลแล้ว เช็คกล่องจดหมาย (และ Spam)','ok'))
+    .catch(e=>authMsg(friendlyErr(e),'err'));
+}
+function doLogout(){ if(window.fbLogout) window.fbLogout(); }
+function showGate(show){
+  $('authGate').classList.toggle('hidden',!show);
+  document.body.style.overflow = show ? 'hidden':'';
+}
+// เรียกจาก module เมื่อสถานะ login เปลี่ยน
+window.handleAuthState = async function(user){
+  // โลโก้ในหน้า login
+  try{ $('authLogo').src = logoData||DEFAULT_LOGO; }catch(e){}
+  if(!user){ currentUser=null; $('userInfo').classList.add('hidden'); showGate(true); return; }
+  let u=null; try{ u=await window.fbGetUser(user.uid); }catch(e){ console.warn(e); }
+  if(!u){ authMsg('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน — ติดต่อผู้ดูแลระบบ','err'); window.fbLogout(); return; }
+  if(u.is_active===false){ authMsg('บัญชีนี้ถูกระงับการใช้งาน','err'); window.fbLogout(); return; }
+  currentUser={ uid:user.uid, email:user.email, role:u.role||'viewer',
+    name:((u.first_name||'')+' '+(u.last_name||'')).trim()||user.email };
+  try{ window.fbUpdateUser(user.uid,{last_login_at:new Date().toISOString()}); }catch(e){}
+  // โหลด settings (seller/logo) หลัง login
+  try{ const s=await window.fbGetSettings(); if(s) window.applyCompanySettings(s); }catch(e){}
+  showGate(false);
+  applyRoleUI();
+  showTab('dashboard');
+};
+function applyRoleUI(){
+  const p=perm();
+  $('tab-create').classList.toggle('hidden',!p.create);
+  $('tab-taxinvoice').classList.toggle('hidden',!p.create);
+  $('tab-settings').classList.toggle('hidden',!p.settings);
+  $('tab-admin').classList.toggle('hidden',!p.users);
+  // header user chip
+  const initial=(currentUser.name||'?').trim().charAt(0).toUpperCase()||'?';
+  const ui=$('userInfo'); ui.classList.remove('hidden');
+  ui.innerHTML=`<span class="ava">${esc(initial)}</span>
+    <div><div class="nm">${esc(currentUser.name)}</div><div class="rl">${esc(currentUser.role)}</div></div>
+    <button onclick="doLogout()">ออกจากระบบ</button>`;
+}
+
+/* ---- Admin: users ---- */
+let adminUsers=[];
+const ROLE_LABEL={admin:'admin',accountant:'accountant',staff:'staff',viewer:'viewer'};
+async function loadAdminUsers(){
+  if(!window.fbListUsers) return;
+  try{ adminUsers=await window.fbListUsers(); }catch(e){ adminUsers=[]; }
+  renderAdminUsers();
+}
+function renderAdminUsers(){
+  const body=$('adminUsersBody'); body.innerHTML='';
+  if(adminUsers.length===0){ $('adminUsersEmpty').classList.remove('hidden'); return; }
+  $('adminUsersEmpty').classList.add('hidden');
+  adminUsers.sort((a,b)=>(a.email||'').localeCompare(b.email||''));
+  adminUsers.forEach(u=>{
+    const roleSel=`<select onchange="changeUserRole('${u.uid}',this.value)" class="spill s-draft" style="padding-right:24px">`+
+      ['admin','accountant','staff','viewer'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')+`</select>`;
+    const active=u.is_active!==false;
+    const statusBtn=`<button class="spill ${active?'s-paid':'s-cancelled'}" onclick="toggleUserActive('${u.uid}',${active})">${active?'● ใช้งาน':'○ ระงับ'}</button>`;
+    const last=u.last_login_at?new Date(u.last_login_at).toLocaleString('th-TH'):'—';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-weight:600">${esc(((u.first_name||'')+' '+(u.last_name||'')).trim()||'-')}</td>
+      <td>${esc(u.email||'-')}</td>
+      <td>${roleSel}</td>
+      <td>${statusBtn}</td>
+      <td style="color:var(--muted);font-size:11px">${esc(last)}</td>
+      <td style="text-align:right"><a class="link" onclick="reinvite('${esc(u.email)}')">↻ ส่งลิงก์ใหม่</a></td>`;
+    body.appendChild(tr);
+  });
+}
+function auMsg(m,t){ const el=$('auStatus'); el.className='status show '+t; el.innerHTML=m; }
+async function adminCreateUser(){
+  const fn=val('auFirst').trim(), ln=val('auLast').trim(), email=val('auEmail').trim(), role=val('auRole');
+  if(!fn||!ln||!email){ auMsg('กรุณากรอก ชื่อ-นามสกุล-อีเมล','err'); return; }
+  auMsg('⏳ กำลังสร้างผู้ใช้และส่งลิงก์...','info');
+  try{
+    const uid=await window.fbCreateAuthUser(email);
+    const nowI=new Date().toISOString();
+    await window.fbSetUser(uid,{ first_name:fn,last_name:ln,email,role,is_active:true,
+      created_at:nowI,updated_at:nowI,created_by:(currentUser&&currentUser.uid)||'',last_login_at:null });
+    await window.fbResetPassword(email);
+    auMsg('✅ สร้างผู้ใช้แล้ว และส่งลิงก์ตั้งรหัสผ่านไปที่ '+esc(email)+' เรียบร้อย','ok');
+    ['auFirst','auLast','auEmail'].forEach(id=>$(id).value='');
+    loadAdminUsers();
+  }catch(e){ auMsg('สร้างไม่สำเร็จ: '+friendlyErr(e),'err'); }
+}
+function changeUserRole(uid,role){ window.fbUpdateUser(uid,{role}).then(loadAdminUsers).catch(()=>{}); }
+function toggleUserActive(uid,cur){ window.fbUpdateUser(uid,{is_active:!cur}).then(loadAdminUsers).catch(()=>{}); }
+function reinvite(email){ window.fbResetPassword(email).then(()=>auMsg('ส่งลิงก์ตั้งรหัสผ่านไปที่ '+esc(email)+' แล้ว','ok')).catch(e=>auMsg(friendlyErr(e),'err')); }
+
+/* bootstrap: สร้าง admin 2 คนแรก (รันครั้งเดียว) */
+window.seedAdmins = async function(){
+  const existing=await window.fbListUsers();
+  if(existing.length>0) return {skipped:true, count:existing.length};
+  const admins=[
+    {first_name:'Surasit',last_name:'Khunsong',email:'surasit@transformational.co.th'},
+    {first_name:'Surasit',last_name:'Khunsong',email:'tae.surasitk@gmail.com'}
+  ];
+  const done=[];
+  for(const a of admins){
+    const uid=await window.fbCreateAuthUser(a.email);
+    const nowI=new Date().toISOString();
+    await window.fbSetUser(uid,{...a,role:'admin',is_active:true,created_at:nowI,updated_at:nowI,created_by:'seed',last_login_at:null});
+    await window.fbResetPassword(a.email);
+    done.push(a.email);
+  }
+  return {created:done};
+};
+
 /* ---------- tabs ---------- */
 function showTab(t){
-  ['create','taxinvoice','dashboard','vendor','history','settings'].forEach(x=>{
+  ['create','taxinvoice','dashboard','vendor','history','settings','admin'].forEach(x=>{
     $('tab-'+x).classList.toggle('active',t===x);
     $('view-'+x).classList.toggle('hidden',t!==x);
   });
@@ -1347,6 +1548,7 @@ function showTab(t){
   if(t==='dashboard') loadDashboard();
   if(t==='vendor') loadVendors();
   if(t==='taxinvoice') renderTaxPreview(false);
+  if(t==='admin') loadAdminUsers();
 }
 
 /* ---------- settings (seller/company) ---------- */
@@ -1411,7 +1613,8 @@ function liveRender(){
   $('tdocDate').value=new Date().toISOString().slice(0,10);
   $('tdocNo').value='INV'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+'0001';
   addTaxItem('',1,'',''); renderTaxPreview(false);
-  showTab('dashboard'); // หน้าแรก = Home/Dashboard
+  try{ $('authLogo').src=logoData||DEFAULT_LOGO; }catch(e){}
+  // หน้าแรกหลัง login = Dashboard (จัดการใน handleAuthState) — ก่อน login จะเจอหน้า Login ก่อน
 })();
 </script>
 
@@ -1421,9 +1624,11 @@ function liveRender(){
    ถ้าเว้น projectId ว่างไว้ ระบบจะใช้ localStorage แทน
    ============================================================ -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, getDocs, setDoc, getDoc, doc, updateDoc, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, createUserWithEmailAndPassword }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDV57D-HCuN6u_H8vEONn6Ltxzs121QwB0",
@@ -1487,11 +1692,43 @@ if (firebaseConfig.projectId) {
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     };
 
+    /* ============ AUTH (Firebase Authentication) ============ */
+    const auth = getAuth(app);
+    const USERS = "users";
+    const nowISO = () => new Date().toISOString();
+
+    window.fbLogin = (email, pwd) => signInWithEmailAndPassword(auth, email, pwd);
+    window.fbLogout = () => signOut(auth);
+    window.fbResetPassword = (email) => sendPasswordResetEmail(auth, email);
+
+    // user profile (collection: users) keyed by auth uid
+    window.fbGetUser = async (uid) => { const s = await getDoc(doc(db, USERS, uid)); return s.exists() ? s.data() : null; };
+    window.fbSetUser = async (uid, data) => setDoc(doc(db, USERS, uid), data, { merge: true });
+    window.fbUpdateUser = async (uid, fields) => updateDoc(doc(db, USERS, uid), { ...fields, updated_at: nowISO() });
+    window.fbListUsers = async () => {
+      const snap = await getDocs(collection(db, USERS));
+      return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    };
+
+    // create a user account WITHOUT logging out the current admin (secondary app instance)
+    window.fbCreateAuthUser = async (email) => {
+      const sec = initializeApp(firebaseConfig, "secondary_" + Date.now());
+      const secAuth = getAuth(sec);
+      try {
+        const rndPwd = "Tmp!" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2).toUpperCase() + "9";
+        const cred = await createUserWithEmailAndPassword(secAuth, email, rndPwd);
+        const uid = cred.user.uid;
+        await signOut(secAuth);
+        return uid;
+      } finally { try { await deleteApp(sec); } catch (e) {} }
+    };
+
     window.FB_READY = true;
-    console.log("Firebase (Firestore) backend ready");
-    // ดึง settings (seller + โลโก้) จาก Firebase มาใช้เป็นค่าเริ่มต้น
-    window.fbGetSettings().then(s => { if (s && window.applyCompanySettings) window.applyCompanySettings(s); }).catch(() => {});
+    window.FB_AUTH_READY = true;
+    console.log("Firebase (Firestore + Auth) backend ready");
     if (window.onFbReady) window.onFbReady();
+    // เฝ้าสถานะ login -> ส่งให้ฝั่งแอปจัดการ (gate + role)
+    onAuthStateChanged(auth, (user) => { if (window.handleAuthState) window.handleAuthState(user); });
   } catch (e) {
     console.warn("Firebase init failed:", e);
     window.FB_READY = false;
