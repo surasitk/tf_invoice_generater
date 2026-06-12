@@ -160,6 +160,11 @@
   .kpi .v.brand{color:var(--brand)}
   /* skeleton loading */
   .skeleton{background:linear-gradient(90deg,#eceef3 25%,#f6f7fb 50%,#eceef3 75%);background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;border-radius:7px;color:transparent !important}
+  .barchart{display:flex;align-items:flex-end;gap:6px;height:160px}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+  .bar-wrap{width:70%;max-width:32px;height:138px;display:flex;align-items:flex-end}
+  .bar{width:100%;background:linear-gradient(180deg,#6f8bff,#3b54e0);border-radius:6px 6px 0 0;min-height:2px;transition:height .4s}
+  .bar-lbl{font-size:10px;color:var(--muted)}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
   .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
   .ccard{border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,border .15s;background:#fff}
@@ -363,6 +368,7 @@
     <div class="status info show" id="dashSource"></div>
 
     <div class="kpis" id="dashKpis"></div>
+    <div id="dashChart"></div>
     <div class="dash-grid" id="dashClients"></div>
     <div class="empty-preview hidden" id="dashEmpty">ยังไม่มีข้อมูลใบแจ้งหนี้</div>
 
@@ -562,6 +568,14 @@
         <button class="fpill" data-f="cancelled" onclick="setFilter('cancelled')">ยกเลิก <span class="cnt" id="c-cancelled">0</span></button>
       </div>
       <input id="histSearch" class="hsearch" placeholder="🔍 ค้นหา เลขที่ / ลูกค้า / รายละเอียด" oninput="renderHist()">
+    </div>
+    <div class="filterbar" style="gap:12px;margin-top:-4px">
+      <div class="field" style="margin:0"><label>ตั้งแต่</label><input id="histFrom" type="date" onchange="renderHist()"></div>
+      <div class="field" style="margin:0"><label>ถึง</label><input id="histTo" type="date" onchange="renderHist()"></div>
+      <div class="field" style="margin:0"><label>ประเภท</label>
+        <select id="histType" onchange="renderHist()"><option value="all">ทั้งหมด</option><option value="inv">Invoice</option><option value="tax">Tax Invoice</option></select>
+      </div>
+      <button class="btn ghost" style="align-self:flex-end" onclick="$('histFrom').value='';$('histTo').value='';$('histType').value='all';$('histSearch').value='';renderHist()">ล้างตัวกรอง</button>
     </div>
 
     <div class="status info show" id="histSource"></div>
@@ -962,6 +976,7 @@ function dashSkeleton(){
   $('dashDetail').classList.add('hidden');
   $('dashClients').classList.remove('hidden');
   $('dashEmpty').classList.add('hidden');
+  $('dashChart').innerHTML='';
   $('dashSource').textContent='⏳ กำลังโหลดข้อมูล...';
   $('dashKpis').innerHTML=Array(4).fill('<div class="kpi"><div class="k skeleton" style="width:55%">.</div><div class="v skeleton" style="height:24px;margin-top:8px;width:70%">.</div></div>').join('');
   $('dashClients').innerHTML=Array(3).fill('<div class="ccard"><div class="top"><span class="avatar skeleton">.</span><div style="flex:1"><div class="skeleton" style="height:14px;width:65%">.</div><div class="skeleton" style="height:10px;width:40%;margin-top:7px">.</div></div></div><div class="skeleton" style="height:20px;width:55%;margin-top:14px">.</div><div class="skeleton" style="height:18px;width:35%;margin-top:10px;border-radius:20px">.</div></div>').join('');
@@ -1002,6 +1017,17 @@ function renderDashClients(){
     </div>`;
   }).join('');
   window._dashGroups=groups;
+  renderDashChart();
+}
+function renderDashChart(){
+  const el=$('dashChart'); if(!el) return;
+  const now=new Date(); const months=[];
+  for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push({key:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2), label:('0'+(d.getMonth()+1)).slice(-2)+'/'+(d.getFullYear()%100)}); }
+  const sums={}; months.forEach(m=>sums[m.key]=0);
+  histData.forEach(i=>{ if(i.status==='cancelled'||i.docType==='qt') return; const key=(i.date||'').slice(0,7); if(key in sums) sums[key]+=Number(i.net)||0; });
+  const max=Math.max(1,...months.map(m=>sums[m.key]));
+  el.innerHTML=`<div class="card" style="margin-bottom:16px"><div class="hint" style="margin-bottom:12px">📊 ยอดขายรายเดือน (12 เดือนล่าสุด · ไม่รวมยกเลิก)</div>
+    <div class="barchart">${months.map(m=>{const h=Math.round(sums[m.key]/max*100); return `<div class="bar-col"><div class="bar-wrap"><div class="bar" style="height:${h}%" title="${esc(m.label)}: ${fmt(sums[m.key])} บาท"></div></div><div class="bar-lbl">${esc(m.label)}</div></div>`;}).join('')}</div></div>`;
 }
 const STATUS_ORDER=['open','overdue','paid','draft','cancelled'];
 async function goCreateTaxFromInvoice(invId){
@@ -1022,6 +1048,7 @@ function openClient(idx){
   $('dashClients').classList.add('hidden');
   $('dashKpis').classList.add('hidden');
   $('dashEmpty').classList.add('hidden');
+  $('dashChart').innerHTML='';
   const initial=(g.name).replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
   let sections='';
   STATUS_ORDER.forEach(s=>{
@@ -1069,8 +1096,12 @@ function renderHist(){
   $('histCount').textContent=histData.length;
 
   const q=($('histSearch').value||'').toLowerCase().trim();
+  const hFrom=($('histFrom')||{}).value||'', hTo=($('histTo')||{}).value||'', hType=(($('histType')||{}).value)||'all';
   let rows=histData.filter(it=>histFilter==='all'||it.status===histFilter);
   if(q) rows=rows.filter(it=>((it.no||'')+' '+(it.customer||'')+' '+(it.subject||'')).toLowerCase().includes(q));
+  if(hFrom) rows=rows.filter(it=>(it.date||'')>=hFrom);
+  if(hTo) rows=rows.filter(it=>(it.date||'')<=hTo);
+  if(hType!=='all') rows=rows.filter(it=>(it.docType==='tax'?'tax':'inv')===hType);
 
   const body=$('histBody'); body.innerHTML='';
   if(rows.length===0){ $('histEmpty').classList.remove('hidden'); return; }
@@ -1106,9 +1137,34 @@ function renderHist(){
       <td>${statusSelectHTML(idx, it.status)}</td>
       <td class="subj">${esc(it.subject||'-')}</td>
       <td>${typeBadge}</td>
-      <td style="text-align:right">${dl}${taxLink}</td>`;
+      <td style="text-align:right">${dl}${taxLink}${perm().create?`<br><a class="link" onclick="duplicateDoc(${idx})">📋 คัดลอก/ออกใหม่</a>`:''}</td>`;
     body.appendChild(tr);
   });
+}
+function duplicateDoc(idx){
+  const it=histData[idx]; if(!it) return;
+  if(it.docType==='tax'){
+    showTab('taxinvoice');
+    const v=vendorData.find(x=>(it.vendorId&&x.id===it.vendorId)||x.name===it.customer||(it.custTax&&x.taxId===it.custTax));
+    if(v){ $('tcustSelect').value=v.id; onTaxVendorSelect(); }
+    else { $('tcustSelect').value=''; $('tcustName').value=it.customer||''; $('tcustAddr').value=it.custAddr||''; $('tcustTax').value=it.custTax||''; }
+    $('titemsBody').innerHTML='';
+    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,qty:1,unit:'',price:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
+    items.forEach(x=>addTaxItem(x.detail||'', x.qty||1, x.unit||'', (x.price!=null?x.price:(x.amount||0))));
+    $('tdocNote').value=it.note||''; taxSource=null;
+    renderTaxPreview(false);
+  } else {
+    showTab('create');
+    const v=vendorData.find(x=>(it.vendorId&&x.id===it.vendorId)||x.name===it.customer||(it.custTax&&x.taxId===it.custTax));
+    if(v){ $('custSelect').value=v.id; onVendorSelect(); }
+    else { $('custSelect').value=''; $('custName').value=it.customer||''; $('custAddr').value=it.custAddr||''; $('custTax').value=it.custTax||''; }
+    $('itemsBody').innerHTML='';
+    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,amount:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
+    items.forEach(x=>addItem(x.detail||'', (x.amount!=null?x.amount:0)));
+    $('docNote').value=it.note||'';
+    renderPreview(false);
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 const STATUS_OPTS=['open','paid','overdue','draft','cancelled'];
 function statusSelectHTML(idx, cur){
