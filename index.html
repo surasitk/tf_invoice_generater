@@ -132,6 +132,30 @@
   .s-cancelled{background:#f1f1f4;color:#6b7280;text-decoration:line-through}
   .link{color:var(--brand);text-decoration:none;font-weight:600;cursor:pointer}
   .subj{color:#4b5563}
+  /* Dashboard */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 16px}
+  @media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:#fafbff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:22px;font-weight:700;color:var(--ink);margin-top:3px}
+  .kpi .v.brand{color:var(--brand)}
+  .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .ccard{border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,border .15s;background:#fff}
+  .ccard:hover{border-color:var(--brand);box-shadow:0 4px 16px rgba(79,107,255,.12)}
+  .ccard .top{display:flex;align-items:center;gap:11px}
+  .ccard .nm{font-weight:700;font-size:14px;line-height:1.25}
+  .ccard .sub{font-size:12px;color:var(--muted)}
+  .ccard .amt{margin-top:12px;font-size:20px;font-weight:700;color:var(--brand)}
+  .ccard .amt small{font-size:12px;color:var(--muted);font-weight:600}
+  .ccard .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+  .dash-back{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--brand);font-weight:600;font-size:13px;margin-bottom:14px}
+  .cdetail-head{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .cdetail-head .nm{font-size:18px;font-weight:700}
+  .statsec{border:1px solid var(--line);border-radius:12px;margin-top:14px;overflow:hidden}
+  .statsec .sh{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fafbff;border-bottom:1px solid var(--line)}
+  .statsec .sh .ttl{font-weight:700}
+  .statsec .sh .sum{margin-left:auto;font-weight:700;color:var(--ink)}
   .hidden{display:none !important}
 </style>
 </head>
@@ -143,6 +167,7 @@
   </div>
   <div class="tabs">
     <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ สร้างใบแจ้งหนี้</button>
+    <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 แดชบอร์ด</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 ประวัติ (History)</button>
   </div>
 </header>
@@ -214,6 +239,26 @@
         <div class="paper hidden" id="paper"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ================= DASHBOARD TAB ================= -->
+<div class="wrap hidden" id="view-dashboard">
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <h2 style="margin:0">แดชบอร์ดลูกค้า / Client Dashboard</h2>
+        <div class="hint">รวมใบแจ้งหนี้ตามลูกค้า · กดที่ลูกค้าเพื่อดูแยกตามสถานะและยอดรวม</div>
+      </div>
+      <button class="btn ghost" style="margin-left:auto" onclick="loadDashboard()">🔄 รีเฟรช</button>
+    </div>
+    <div class="status info show" id="dashSource"></div>
+
+    <div class="kpis" id="dashKpis"></div>
+    <div class="dash-grid" id="dashClients"></div>
+    <div class="empty-preview hidden" id="dashEmpty">ยังไม่มีข้อมูลใบแจ้งหนี้</div>
+
+    <div id="dashDetail" class="hidden"></div>
   </div>
 </div>
 
@@ -541,8 +586,8 @@ const STATUS_CYCLE=['open','paid','overdue','draft','cancelled'];
 const AVA_COLORS=['#4f6bff','#7c3aed','#0ea5e9','#f59e0b','#ec4899','#10b981','#ef4444','#6366f1'];
 function avaColor(s){ let h=0; for(const c of (s||'?')) h=(h*31+c.charCodeAt(0))%AVA_COLORS.length; return AVA_COLORS[h]; }
 
-async function loadHistory(){
-  $('histEmpty').classList.add('hidden');
+let histSourceText='';
+async function fetchInvoices(){
   let list=[]; let source='';
   if(CONFIG.SCRIPT_URL){
     try{
@@ -557,8 +602,106 @@ async function loadHistory(){
     if(!CONFIG.SCRIPT_URL) source='💾 ยังไม่ได้ตั้งค่า Drive — เก็บประวัติในเบราว์เซอร์';
   }
   histData=list.map(it=>({...it, status: it.status||'open'}));
-  $('histSource').textContent=source+' · '+histData.length+' รายการ';
+  histSourceText=source+' · '+histData.length+' รายการ';
+  return histData;
+}
+async function loadHistory(){
+  $('histEmpty').classList.add('hidden');
+  await fetchInvoices();
+  $('histSource').textContent=histSourceText;
   renderHist();
+}
+
+/* ---------- dashboard ---------- */
+function dlLink(it){
+  if(it.downloadUrl) return `<a class="link" href="${it.downloadUrl}" target="_blank">⬇ ดาวน์โหลด</a>`;
+  if(it.webViewLink) return `<a class="link" href="${it.webViewLink}" target="_blank">⬇ เปิด</a>`;
+  if(it._localPdf) return `<a class="link" href="${it._localPdf}" download="${it.filename||'invoice.pdf'}">⬇ ดาวน์โหลด</a>`;
+  return '—';
+}
+function groupByClient(){
+  const map={};
+  histData.forEach(it=>{
+    const key=(it.customer||'ไม่ระบุลูกค้า').trim()||'ไม่ระบุลูกค้า';
+    if(!map[key]) map[key]={name:key, items:[], total:0, byStatus:{}};
+    map[key].items.push(it);
+    map[key].total+=Number(it.net)||0;
+    map[key].byStatus[it.status]=(map[key].byStatus[it.status]||0)+1;
+  });
+  return Object.values(map).sort((a,b)=>b.total-a.total);
+}
+async function loadDashboard(){
+  await fetchInvoices();
+  $('dashSource').textContent=histSourceText;
+  renderDashClients();
+}
+function renderDashClients(){
+  $('dashDetail').classList.add('hidden');
+  $('dashClients').classList.remove('hidden');
+  $('dashKpis').classList.remove('hidden');
+  const groups=groupByClient();
+  const totalAmt=histData.reduce((a,i)=>a+(Number(i.net)||0),0);
+  const outstanding=histData.filter(i=>i.status==='open'||i.status==='overdue').reduce((a,i)=>a+(Number(i.net)||0),0);
+  $('dashKpis').innerHTML=`
+    <div class="kpi"><div class="k">ลูกค้าทั้งหมด</div><div class="v">${groups.length}</div></div>
+    <div class="kpi"><div class="k">ใบแจ้งหนี้ทั้งหมด</div><div class="v">${histData.length}</div></div>
+    <div class="kpi"><div class="k">ยอดรวมทั้งหมด (บาท)</div><div class="v brand">${fmt(totalAmt)}</div></div>
+    <div class="kpi"><div class="k">ยอดค้างชำระ (บาท)</div><div class="v" style="color:#6d28d9">${fmt(outstanding)}</div></div>`;
+  if(groups.length===0){ $('dashClients').innerHTML=''; $('dashEmpty').classList.remove('hidden'); return; }
+  $('dashEmpty').classList.add('hidden');
+  $('dashClients').innerHTML=groups.map((g,i)=>{
+    const initial=(g.name).replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
+    const chips=Object.keys(g.byStatus).map(s=>{
+      const sm=STATUS_META[s]||STATUS_META.open;
+      return `<span class="chip ${sm.cls}">${sm.label} ${g.byStatus[s]}</span>`;
+    }).join('');
+    return `<div class="ccard" onclick="openClient(${i})">
+      <div class="top">
+        <span class="avatar" style="background:${avaColor(g.name)}">${esc(initial)}</span>
+        <div><div class="nm">${esc(g.name)}</div><div class="sub">${g.items.length} ใบแจ้งหนี้</div></div>
+      </div>
+      <div class="amt">${fmt(g.total)} <small>บาท</small></div>
+      <div class="chips">${chips}</div>
+    </div>`;
+  }).join('');
+  window._dashGroups=groups;
+}
+const STATUS_ORDER=['open','overdue','paid','draft','cancelled'];
+function openClient(idx){
+  const g=window._dashGroups[idx]; if(!g) return;
+  $('dashClients').classList.add('hidden');
+  $('dashKpis').classList.add('hidden');
+  $('dashEmpty').classList.add('hidden');
+  const initial=(g.name).replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
+  let sections='';
+  STATUS_ORDER.forEach(s=>{
+    const items=g.items.filter(it=>it.status===s);
+    if(items.length===0) return;
+    const sm=STATUS_META[s];
+    const sum=items.reduce((a,i)=>a+(Number(i.net)||0),0);
+    const rows=items.map(it=>`<tr>
+      <td><span class="badge">${esc(it.no||'-')}</span></td>
+      <td>${esc(fmtDate(it.date))}</td>
+      <td class="subj">${esc(it.subject||'-')}</td>
+      <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
+      <td style="text-align:right">${dlLink(it)}</td></tr>`).join('');
+    sections+=`<div class="statsec">
+      <div class="sh"><span class="spill ${sm.cls}">${sm.label}</span><span class="ttl">${items.length} ใบ</span><span class="sum">${fmt(sum)} บาท</span></div>
+      <table class="htable" style="margin:0">
+        <thead><tr><th style="width:150px">เลขที่</th><th style="width:110px">วันที่</th><th>รายละเอียด</th><th style="width:130px;text-align:right">ยอดสุทธิ</th><th style="width:110px"></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  });
+  const d=$('dashDetail');
+  d.classList.remove('hidden');
+  d.innerHTML=`
+    <div class="dash-back" onclick="renderDashClients()">← กลับไปรายชื่อลูกค้า</div>
+    <div class="cdetail-head">
+      <span class="avatar" style="width:40px;height:40px;font-size:16px;background:${avaColor(g.name)}">${esc(initial)}</span>
+      <div><div class="nm">${esc(g.name)}</div><div class="hint">${g.items.length} ใบแจ้งหนี้ · ยอดรวม ${fmt(g.total)} บาท</div></div>
+    </div>
+    ${sections}`;
 }
 function setFilter(f){
   histFilter=f;
@@ -617,10 +760,13 @@ function cycleStatus(idx){
 /* ---------- tabs ---------- */
 function showTab(t){
   $('tab-create').classList.toggle('active',t==='create');
+  $('tab-dashboard').classList.toggle('active',t==='dashboard');
   $('tab-history').classList.toggle('active',t==='history');
   $('view-create').classList.toggle('hidden',t!=='create');
+  $('view-dashboard').classList.toggle('hidden',t!=='dashboard');
   $('view-history').classList.toggle('hidden',t!=='history');
   if(t==='history') loadHistory();
+  if(t==='dashboard') loadDashboard();
 }
 function resetForm(){
   ['custName','custAddr','custTax','docNo'].forEach(id=>$(id).value='');
