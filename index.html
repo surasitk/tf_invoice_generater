@@ -210,6 +210,87 @@
   .userinfo .ava{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
   .userinfo button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--danger)}
   .hidden{display:none !important}
+
+  /* ===================== UI/UX polish layer (2025) ===================== */
+  html{scroll-behavior:smooth}
+  body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
+    background:radial-gradient(1100px 560px at 88% -8%,#e7ecfb 0%,rgba(236,238,243,0) 55%),
+               radial-gradient(900px 500px at 5% 0%,#eef0fb 0%,rgba(236,238,243,0) 50%),
+               var(--bg);background-attachment:fixed}
+  ::selection{background:rgba(79,107,255,.22)}
+  *{-webkit-tap-highlight-color:transparent}
+
+  /* App bar — frosted glass */
+  header.appbar{background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(12px);
+    -webkit-backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid rgba(230,232,239,.7);
+    box-shadow:0 1px 0 rgba(20,25,50,.04),0 8px 28px rgba(20,25,50,.05)}
+
+  /* Tabs — smoother */
+  .tab{transition:color .18s,background .18s,box-shadow .18s,transform .12s}
+  .tab:hover:not(.active){color:var(--ink);background:rgba(255,255,255,.7)}
+  .tab.active{box-shadow:0 4px 14px rgba(79,107,255,.34)}
+  .tab:active{transform:translateY(1px)}
+
+  /* Cards — softer, deeper */
+  .card{border-radius:18px;border-color:#ebedf4;
+    box-shadow:0 1px 2px rgba(20,25,50,.04),0 12px 34px rgba(20,25,50,.06);transition:box-shadow .2s}
+  .card:hover{box-shadow:0 1px 2px rgba(20,25,50,.05),0 16px 44px rgba(20,25,50,.08)}
+
+  /* Inputs — refined focus */
+  .field input,.field textarea,.field select{transition:border .16s,box-shadow .16s,background .16s}
+
+  /* Buttons — micro-interactions */
+  .btn{transition:background .16s,filter .16s,box-shadow .16s,transform .1s}
+  .btn:hover{box-shadow:0 4px 16px rgba(79,107,255,.36)}
+  .btn:active{transform:translateY(1px);box-shadow:0 2px 6px rgba(79,107,255,.3)}
+  .btn.ghost:hover{background:var(--soft);box-shadow:none}
+  .icon-btn{transition:background .15s,border-color .15s,transform .1s}
+  .icon-btn:hover{background:#fff1f3;border-color:#fecdd3}
+  .icon-btn:active{transform:translateY(1px)}
+
+  /* KPI cards — gradient + lift */
+  .kpi{background:linear-gradient(180deg,#fff,#fafbff);box-shadow:0 1px 2px rgba(20,25,50,.04),0 6px 18px rgba(20,25,50,.04);
+    transition:transform .15s,box-shadow .15s}
+  .kpi:hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(20,25,50,.05),0 12px 28px rgba(20,25,50,.08)}
+  .kpi .v{letter-spacing:-.02em}
+
+  /* Client cards — lift on hover */
+  .ccard{transition:transform .16s,box-shadow .16s,border-color .16s}
+  .ccard:hover{transform:translateY(-3px)}
+
+  /* History table — gentle row transition */
+  .htable th{text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+  .htable tbody tr{transition:background .14s}
+  .htable td{transition:background .14s}
+  .spill{transition:filter .14s,transform .1s}
+  .spill:active{transform:translateY(1px)}
+
+  /* Headings tightened */
+  .card h2,.cdetail-head .nm,.doc-title .t{letter-spacing:-.01em}
+
+  /* Nicer scrollbars */
+  .paper-scroll{scrollbar-width:thin;scrollbar-color:#c4cad8 transparent}
+  .paper-scroll::-webkit-scrollbar{width:11px;height:11px}
+  .paper-scroll::-webkit-scrollbar-thumb{background:#c4cad8;border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+  .paper-scroll::-webkit-scrollbar-thumb:hover{background:#aab2c4;background-clip:padding-box}
+
+  /* Modal — entrance animation */
+  .modal-overlay{backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:fadeIn .18s ease}
+  .modal-card{animation:popIn .2s cubic-bezier(.2,.9,.3,1.2)}
+  .auth-card{animation:popIn .25s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes popIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+
+  /* Tab content fade-in */
+  .wrap[id^="view-"]{animation:tabFade .22s ease}
+  @keyframes tabFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* Auth gate — animated gradient */
+  .auth-gate{background:linear-gradient(135deg,#4f6bff 0%,#3b54e0 55%,#11297a 100%);background-size:160% 160%;
+    animation:authShift 14s ease infinite}
+  @keyframes authShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 </style>
 </head>
 <body>
