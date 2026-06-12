@@ -337,13 +337,19 @@ const DEFAULT_LOGO='data:image/svg+xml;utf8,'+encodeURIComponent(
   </svg>`);
 let logoData=localStorage.getItem('inv_logo')||'';
 function applyLogoThumb(){ const t=$('logoThumb'); if(t) t.src=logoData||DEFAULT_LOGO; }
+// เรียกจาก Firebase เมื่อมีโลโก้ที่บันทึกไว้ -> ใช้เป็นค่าเริ่มต้นในฟอร์ม
+window.applyCompanyLogo=function(l){ logoData=l; try{localStorage.setItem('inv_logo',l);}catch(e){} applyLogoThumb(); renderPreview(false); };
 function onLogoUpload(e){
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=()=>{ logoData=r.result; localStorage.setItem('inv_logo',logoData); applyLogoThumb(); renderPreview(false); };
+  r.onload=()=>{
+    logoData=r.result; localStorage.setItem('inv_logo',logoData); applyLogoThumb(); renderPreview(false);
+    // อัปโหลดขึ้น Firebase เพื่อเป็นโลโก้กลางของทุกเครื่อง
+    if(window.fbSetLogo){ window.fbSetLogo(logoData).then(()=>setStatus('✅ บันทึกโลโก้ขึ้น Firebase แล้ว (ใช้เป็นค่าเริ่มต้นทุกเครื่อง)','ok')).catch(()=>{}); }
+  };
   r.readAsDataURL(f);
 }
-function clearLogo(){ logoData=''; localStorage.removeItem('inv_logo'); applyLogoThumb(); renderPreview(false); const lf=$('logoFile'); if(lf) lf.value=''; }
+function clearLogo(){ logoData=''; localStorage.removeItem('inv_logo'); applyLogoThumb(); renderPreview(false); const lf=$('logoFile'); if(lf) lf.value=''; if(window.fbSetLogo) window.fbSetLogo('').catch(()=>{}); }
 
 /* ---------- Thai Baht text ---------- */
 function bahtText(num){
@@ -531,17 +537,37 @@ async function generatePDF(){
   const btn=$('btnPdf'); btn.disabled=true; setStatus('⏳ กำลังสร้าง PDF...','info');
   try{
     const {net}=calc();
-    const node=$('paper');
-    const canvas=await html2canvas(node,{scale:2,useCORS:true,backgroundColor:'#fff'});
-    const img=canvas.toDataURL('image/jpeg',0.95);
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF('p','mm','a4');
     const pw=210, ph=297;
-    const iw=pw, ih=canvas.height*pw/canvas.width;
-    let pos=0, left=ih;
-    pdf.addImage(img,'JPEG',0,pos,iw,ih);
-    left-=ph;
-    while(left>0){ pos-=ph; pdf.addPage(); pdf.addImage(img,'JPEG',0,pos,iw,ih); left-=ph; }
+
+    // off-screen render node: A4 width, ไม่บังคับความสูง -> เนื้อหาพอดี ไม่มีหน้าเปล่า
+    let holder=document.getElementById('pdfHolder');
+    if(!holder){
+      holder=document.createElement('div'); holder.id='pdfHolder';
+      holder.style.position='fixed'; holder.style.left='-10000px'; holder.style.top='0';
+      document.body.appendChild(holder);
+    }
+    holder.className='paper';
+    holder.style.width='760px'; holder.style.minHeight='auto';
+    holder.style.boxShadow='none'; holder.style.background='#fff';
+
+    let first=true;
+    // ออก 2 ชุดในไฟล์เดียว: ต้นฉบับ (Original) แล้วตามด้วย สำเนา (Copy)
+    for(const isCopy of [false, true]){
+      holder.innerHTML=buildInvoiceHTML(isCopy);
+      await new Promise(r=>setTimeout(r,40)); // รอ layout/ฟอนต์
+      const canvas=await html2canvas(holder,{scale:2,useCORS:true,backgroundColor:'#fff'});
+      const img=canvas.toDataURL('image/jpeg',0.95);
+      const ih=canvas.height*pw/canvas.width;
+      const pages=Math.max(1, Math.ceil((ih-4)/ph)); // เพิ่มหน้าเฉพาะตอนเนื้อหายาวจริง
+      for(let p=0;p<pages;p++){
+        if(!first) pdf.addPage();
+        first=false;
+        pdf.addImage(img,'JPEG',0,-p*ph,pw,ih);
+      }
+    }
+    holder.innerHTML='';
     const fname=(($('docNo').value||'invoice').replace(/[^\w\-]/g,'_'))+'.pdf';
     pdf.save(fname);
 
@@ -631,7 +657,7 @@ function groupByClient(){
     const key=(it.customer||'ไม่ระบุลูกค้า').trim()||'ไม่ระบุลูกค้า';
     if(!map[key]) map[key]={name:key, items:[], total:0, byStatus:{}};
     map[key].items.push(it);
-    map[key].total+=Number(it.net)||0;
+    if(it.status!=='cancelled') map[key].total+=Number(it.net)||0; // ไม่รวมใบที่ยกเลิก
     map[key].byStatus[it.status]=(map[key].byStatus[it.status]||0)+1;
   });
   return Object.values(map).sort((a,b)=>b.total-a.total);
@@ -646,7 +672,7 @@ function renderDashClients(){
   $('dashClients').classList.remove('hidden');
   $('dashKpis').classList.remove('hidden');
   const groups=groupByClient();
-  const totalAmt=histData.reduce((a,i)=>a+(Number(i.net)||0),0);
+  const totalAmt=histData.filter(i=>i.status!=='cancelled').reduce((a,i)=>a+(Number(i.net)||0),0); // ไม่รวมยกเลิก
   const outstanding=histData.filter(i=>i.status==='open'||i.status==='overdue').reduce((a,i)=>a+(Number(i.net)||0),0);
   $('dashKpis').innerHTML=`
     <div class="kpi"><div class="k">ลูกค้าทั้งหมด</div><div class="v">${groups.length}</div></div>
@@ -813,7 +839,7 @@ function liveRender(){
    ============================================================ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, setDoc, doc, updateDoc, query, orderBy }
+import { getFirestore, collection, getDocs, setDoc, getDoc, doc, updateDoc, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -856,8 +882,14 @@ if (firebaseConfig.projectId) {
     };
     window.fbUpdateStatus = async (id, status) => updateDoc(doc(db, COL, id), { status });
 
+    // โลโก้บริษัท เก็บใน Firestore (settings/company) ใช้ร่วมกันทุกเครื่อง
+    window.fbSetLogo = async (dataUri) => setDoc(doc(db, "settings", "company"), { logo: dataUri }, { merge: true });
+    window.fbGetLogo = async () => { const s = await getDoc(doc(db, "settings", "company")); return s.exists() ? (s.data().logo || null) : null; };
+
     window.FB_READY = true;
     console.log("Firebase (Firestore) backend ready");
+    // ดึงโลโก้จาก Firebase มาใช้เป็นค่าเริ่มต้นในฟอร์ม
+    window.fbGetLogo().then(l => { if (l && window.applyCompanyLogo) window.applyCompanyLogo(l); }).catch(() => {});
   } catch (e) {
     console.warn("Firebase init failed:", e);
     window.FB_READY = false;
