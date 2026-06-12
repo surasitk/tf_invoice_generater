@@ -166,14 +166,14 @@
 <body>
 <header class="appbar">
   <div>
-    <h1>ระบบสร้างใบแจ้งหนี้ <span style="color:var(--muted);font-weight:600">/ Invoice Generator</span></h1>
-    <div class="sub">กรอกข้อมูล → Preview → Generate PDF · เก็บประวัติบน Google Drive</div>
+    <h1>Invoice Generator</h1>
   </div>
   <div class="tabs">
-    <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ สร้างใบแจ้งหนี้</button>
-    <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 แดชบอร์ด</button>
+    <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
+    <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
     <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
-    <button class="tab" id="tab-history" onclick="showTab('history')">📁 ประวัติ (History)</button>
+    <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
+    <button class="tab" id="tab-settings" onclick="showTab('settings')">⚙️ Settings</button>
   </div>
 </header>
 
@@ -182,24 +182,9 @@
   <div class="layout">
     <!-- FORM -->
     <div class="card">
-      <h2>ข้อมูลใบแจ้งหนี้</h2>
+      <h2>Invoice Details</h2>
 
-      <div class="section-title">ผู้ออกใบแจ้งหนี้ / Seller</div>
-      <div class="field"><label>ชื่อบริษัท (ไทย)</label><input id="sellerThai" value="บริษัท ทรานส์ฟอร์เมชั่นนอล จำกัด (สำนักงานใหญ่)"></div>
-      <div class="field"><label>ชื่อบริษัท (English)</label><input id="sellerEn" value="TRANSFORMATIONAL CO., LTD. (Head Office)"></div>
-      <div class="field"><label>ที่อยู่</label><textarea id="sellerAddr">1039/9 ซอยสุขุมวิท 71 แขวงคลองตันเหนือ เขตวัฒนา กรุงเทพมหานคร (10110)</textarea></div>
-      <div class="field"><label>เลขประจำตัวผู้เสียภาษีอากร</label><input id="sellerTax" value="0105563113638"></div>
-      <div class="field"><label>เบอร์โทร (ถ้ามี)</label><input id="sellerPhone" placeholder="0XX-XXX-XXXX"></div>
-      <div class="field">
-        <label>โลโก้บริษัท (อัปโหลด .png/.jpg) — ค่าเริ่มต้นใช้โลโก้ Transformational</label>
-        <div style="display:flex;gap:10px;align-items:center">
-          <img id="logoThumb" style="width:46px;height:46px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff" />
-          <input type="file" id="logoFile" accept="image/*" onchange="onLogoUpload(event)" style="flex:1;border:none;padding:0;background:none">
-          <button class="icon-btn" title="ลบโลโก้" onclick="clearLogo()" style="color:var(--danger)">×</button>
-        </div>
-      </div>
-
-      <div class="section-title">ลูกค้า / Customer</div>
+      <div class="section-title">Customer</div>
       <div class="field">
         <label>ชื่อลูกค้า / Customers (เลือกจาก Vendor)</label>
         <div style="display:flex;gap:8px">
@@ -341,6 +326,29 @@
       <button class="btn ghost" onclick="closeVendorModal()">ยกเลิก</button>
     </div>
     <div class="status" id="mvStatus"></div>
+  </div>
+</div>
+
+<!-- ================= SETTINGS TAB ================= -->
+<div class="wrap hidden" id="view-settings">
+  <div class="card" style="max-width:580px">
+    <h2 style="margin:0 0 4px">Settings — Seller / Company</h2>
+    <div class="hint" style="margin-bottom:14px">Issuer info &amp; logo used on every invoice · saved to Firebase (shared on all devices)</div>
+    <div class="field"><label>Company name (TH)</label><input id="sellerThai" value="บริษัท ทรานส์ฟอร์เมชั่นนอล จำกัด (สำนักงานใหญ่)"></div>
+    <div class="field"><label>Company name (EN)</label><input id="sellerEn" value="TRANSFORMATIONAL CO., LTD. (Head Office)"></div>
+    <div class="field"><label>Address</label><textarea id="sellerAddr">1039/9 ซอยสุขุมวิท 71 แขวงคลองตันเหนือ เขตวัฒนา กรุงเทพมหานคร (10110)</textarea></div>
+    <div class="field"><label>Tax ID</label><input id="sellerTax" value="0105563113638"></div>
+    <div class="field"><label>Phone</label><input id="sellerPhone" placeholder="0XX-XXX-XXXX"></div>
+    <div class="field">
+      <label>Company logo (.png/.jpg)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <img id="logoThumb" style="width:46px;height:46px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff" />
+        <input type="file" id="logoFile" accept="image/*" onchange="onLogoUpload(event)" style="flex:1;border:none;padding:0;background:none">
+        <button class="icon-btn" title="Remove logo" onclick="clearLogo()" style="color:var(--danger)">×</button>
+      </div>
+    </div>
+    <div class="actions"><button class="btn green" onclick="saveSettings()">💾 Save settings</button></div>
+    <div class="status" id="settingsStatus"></div>
   </div>
 </div>
 
@@ -983,17 +991,36 @@ window.onFbReady=async function(){ try{ await fetchVendors(); populateVendorDrop
 
 /* ---------- tabs ---------- */
 function showTab(t){
-  $('tab-create').classList.toggle('active',t==='create');
-  $('tab-dashboard').classList.toggle('active',t==='dashboard');
-  $('tab-vendor').classList.toggle('active',t==='vendor');
-  $('tab-history').classList.toggle('active',t==='history');
-  $('view-create').classList.toggle('hidden',t!=='create');
-  $('view-dashboard').classList.toggle('hidden',t!=='dashboard');
-  $('view-vendor').classList.toggle('hidden',t!=='vendor');
-  $('view-history').classList.toggle('hidden',t!=='history');
+  ['create','dashboard','vendor','history','settings'].forEach(x=>{
+    $('tab-'+x).classList.toggle('active',t===x);
+    $('view-'+x).classList.toggle('hidden',t!==x);
+  });
   if(t==='history') loadHistory();
   if(t==='dashboard') loadDashboard();
   if(t==='vendor') loadVendors();
+}
+
+/* ---------- settings (seller/company) ---------- */
+window.applyCompanySettings=function(s){
+  ['sellerThai','sellerEn','sellerAddr','sellerTax','sellerPhone'].forEach(k=>{ if(s[k]!=null && $(k)) $(k).value=s[k]; });
+  if(s.logo){ logoData=s.logo; try{localStorage.setItem('inv_logo',s.logo);}catch(e){} }
+  applyLogoThumb(); renderPreview(false);
+};
+async function saveSettings(){
+  const obj={
+    sellerThai:val('sellerThai'), sellerEn:val('sellerEn'), sellerAddr:val('sellerAddr'),
+    sellerTax:val('sellerTax'), sellerPhone:val('sellerPhone')
+  };
+  try{ localStorage.setItem('inv_settings',JSON.stringify(obj)); }catch(e){}
+  const s=$('settingsStatus'); s.className='status show info'; s.textContent='⏳ Saving...';
+  if(window.FB_READY && window.fbSetSettings){
+    try{ await window.fbSetSettings(obj); s.className='status show ok'; s.textContent='✅ Saved to Firebase (applies to all devices)'; renderPreview(false); return; }
+    catch(e){ s.className='status show err'; s.textContent='⚠ Firebase error — saved locally instead'; renderPreview(false); return; }
+  }
+  s.className='status show ok'; s.textContent='✅ Saved locally'; renderPreview(false);
+}
+function loadLocalSettings(){
+  try{ const o=JSON.parse(localStorage.getItem('inv_settings')||'null'); if(o) window.applyCompanySettings(o); }catch(e){}
 }
 function resetForm(){
   ['custName','custAddr','custTax','docNo'].forEach(id=>$(id).value='');
@@ -1018,10 +1045,11 @@ function liveRender(){
   const d=new Date();
   $('docNo').value='INV-'+d.getFullYear().toString().slice(-2)+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-001';
   addItem('ค่าตอบแทนหลัก (Base GP) และ ค่าขนส่งสินค้า (Logistic Cost)\nประจำเดือน ........... 25..','');
+  loadLocalSettings(); // โหลด seller/company จาก localStorage (ก่อน Firebase พร้อม)
   applyLogoThumb();
-  // live update preview on any input/change in the create view
-  $('view-create').addEventListener('input',liveRender);
-  $('view-create').addEventListener('change',liveRender);
+  // live update preview on any input/change ทั้งหน้า create และ settings
+  document.body.addEventListener('input',e=>{ if(e.target.closest('#view-create,#view-settings')) liveRender(); });
+  document.body.addEventListener('change',e=>{ if(e.target.closest('#view-create,#view-settings')) liveRender(); });
   renderPreview(false); // show preview immediately
   fetchVendors().then(()=>populateVendorDropdown()); // เติม dropdown ลูกค้า
 })();
@@ -1080,6 +1108,9 @@ if (firebaseConfig.projectId) {
     // โลโก้บริษัท เก็บใน Firestore (settings/company) ใช้ร่วมกันทุกเครื่อง
     window.fbSetLogo = async (dataUri) => setDoc(doc(db, "settings", "company"), { logo: dataUri }, { merge: true });
     window.fbGetLogo = async () => { const s = await getDoc(doc(db, "settings", "company")); return s.exists() ? (s.data().logo || null) : null; };
+    // ข้อมูลผู้ออกใบแจ้งหนี้ (seller) เก็บใน settings/company เดียวกัน
+    window.fbSetSettings = async (obj) => setDoc(doc(db, "settings", "company"), obj, { merge: true });
+    window.fbGetSettings = async () => { const s = await getDoc(doc(db, "settings", "company")); return s.exists() ? s.data() : null; };
 
     // Vendor profile (collection: vendors)
     window.fbVendorSave = async (v) => {
@@ -1097,8 +1128,8 @@ if (firebaseConfig.projectId) {
 
     window.FB_READY = true;
     console.log("Firebase (Firestore) backend ready");
-    // ดึงโลโก้จาก Firebase มาใช้เป็นค่าเริ่มต้นในฟอร์ม
-    window.fbGetLogo().then(l => { if (l && window.applyCompanyLogo) window.applyCompanyLogo(l); }).catch(() => {});
+    // ดึง settings (seller + โลโก้) จาก Firebase มาใช้เป็นค่าเริ่มต้น
+    window.fbGetSettings().then(s => { if (s && window.applyCompanySettings) window.applyCompanySettings(s); }).catch(() => {});
     if (window.onFbReady) window.onFbReady();
   } catch (e) {
     console.warn("Firebase init failed:", e);
