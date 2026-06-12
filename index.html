@@ -188,9 +188,9 @@
     <h1>Invoice Generator</h1>
   </div>
   <div class="tabs">
-    <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
+    <button class="tab active" id="tab-dashboard" onclick="showTab('dashboard')">🏠 Home</button>
+    <button class="tab" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
     <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')">🧾 Tax Invoice</button>
-    <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
     <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-settings" onclick="showTab('settings')">⚙️ Settings</button>
@@ -198,7 +198,7 @@
 </header>
 
 <!-- ================= CREATE TAB ================= -->
-<div class="wrap" id="view-create">
+<div class="wrap hidden" id="view-create">
   <div class="layout">
     <!-- FORM -->
     <div class="card">
@@ -316,8 +316,8 @@
   </div>
 </div>
 
-<!-- ================= DASHBOARD TAB ================= -->
-<div class="wrap hidden" id="view-dashboard">
+<!-- ================= DASHBOARD TAB (HOME) ================= -->
+<div class="wrap" id="view-dashboard">
   <div class="card">
     <div class="toolbar">
       <div>
@@ -881,6 +881,19 @@ function renderDashClients(){
   window._dashGroups=groups;
 }
 const STATUS_ORDER=['open','overdue','paid','draft','cancelled'];
+async function goCreateTaxFromInvoice(invId){
+  const inv=histData.find(i=>(i.id||i.no)===invId);
+  if(!inv) return;
+  showTab('taxinvoice');
+  const v=vendorData.find(x=> (inv.vendorId && x.id===inv.vendorId) || (x.name===inv.customer) || (inv.custTax && x.taxId===inv.custTax));
+  if(v){ $('tcustSelect').value=v.id; await onTaxVendorSelect(); }
+  else { // ไม่มี vendor profile — เซ็ตลูกค้าจาก invoice ตรง ๆ
+    $('tcustSelect').value=''; $('tcustName').value=inv.customer||''; $('tcustAddr').value=inv.custAddr||''; $('tcustTax').value=inv.custTax||'';
+    const sel=$('trefSelect'); sel.innerHTML=`<option value="${inv.id||inv.no}">${esc(inv.no)} · ${fmt(inv.net)} บาท</option>`;
+  }
+  $('trefSelect').value=(inv.id||inv.no); onTaxRefSelect();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 function openClient(idx){
   const g=window._dashGroups[idx]; if(!g) return;
   $('dashClients').classList.add('hidden');
@@ -893,12 +906,15 @@ function openClient(idx){
     if(items.length===0) return;
     const sm=STATUS_META[s];
     const sum=items.reduce((a,i)=>a+(Number(i.net)||0),0);
-    const rows=items.map(it=>`<tr>
+    const rows=items.map(it=>{
+      const taxBtn = (s==='open') ? `<button class="btn" style="padding:4px 10px;font-size:11px;background:#88C326;border-color:#88C326;box-shadow:none;margin-right:8px" onclick="goCreateTaxFromInvoice('${it.id||it.no}')">→ ออกใบกำกับภาษี</button>` : '';
+      return `<tr>
       <td><span class="badge">${esc(it.no||'-')}</span></td>
       <td>${esc(fmtDate(it.date))}</td>
       <td class="subj">${esc(it.subject||'-')}</td>
       <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
-      <td style="text-align:right">${dlLink(it)}</td></tr>`).join('');
+      <td style="text-align:right;white-space:nowrap">${taxBtn}${dlLink(it)}</td></tr>`;
+    }).join('');
     sections+=`<div class="statsec">
       <div class="sh"><span class="spill ${sm.cls}">${sm.label}</span><span class="ttl">${items.length} ใบ</span><span class="sum">${fmt(sum)} บาท</span></div>
       <table class="htable" style="margin:0">
@@ -1395,6 +1411,7 @@ function liveRender(){
   $('tdocDate').value=new Date().toISOString().slice(0,10);
   $('tdocNo').value='INV'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+'0001';
   addTaxItem('',1,'',''); renderTaxPreview(false);
+  showTab('dashboard'); // หน้าแรก = Home/Dashboard
 })();
 </script>
 
