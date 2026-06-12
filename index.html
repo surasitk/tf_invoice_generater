@@ -158,6 +158,9 @@
   .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
   .kpi .v{font-size:22px;font-weight:700;color:var(--ink);margin-top:3px}
   .kpi .v.brand{color:var(--brand)}
+  /* skeleton loading */
+  .skeleton{background:linear-gradient(90deg,#eceef3 25%,#f6f7fb 50%,#eceef3 75%);background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite;border-radius:7px;color:transparent !important}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
   .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
   .ccard{border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,border .15s;background:#fff}
   .ccard:hover{border-color:var(--brand);box-shadow:0 4px 16px rgba(79,107,255,.12)}
@@ -886,6 +889,8 @@ async function fetchInvoices(){
 }
 async function loadHistory(){
   $('histEmpty').classList.add('hidden');
+  $('histSource').textContent='⏳ กำลังโหลด...';
+  $('histBody').innerHTML=Array(5).fill('<tr>'+Array(8).fill('<td><div class="skeleton" style="height:16px;width:80%">.</div></td>').join('')+'</tr>').join('');
   await fetchInvoices();
   $('histSource').textContent=histSourceText;
   renderHist();
@@ -909,7 +914,16 @@ function groupByClient(){
   });
   return Object.values(map).sort((a,b)=>b.total-a.total);
 }
+function dashSkeleton(){
+  $('dashDetail').classList.add('hidden');
+  $('dashClients').classList.remove('hidden');
+  $('dashEmpty').classList.add('hidden');
+  $('dashSource').textContent='⏳ กำลังโหลดข้อมูล...';
+  $('dashKpis').innerHTML=Array(4).fill('<div class="kpi"><div class="k skeleton" style="width:55%">.</div><div class="v skeleton" style="height:24px;margin-top:8px;width:70%">.</div></div>').join('');
+  $('dashClients').innerHTML=Array(3).fill('<div class="ccard"><div class="top"><span class="avatar skeleton">.</span><div style="flex:1"><div class="skeleton" style="height:14px;width:65%">.</div><div class="skeleton" style="height:10px;width:40%;margin-top:7px">.</div></div></div><div class="skeleton" style="height:20px;width:55%;margin-top:14px">.</div><div class="skeleton" style="height:18px;width:35%;margin-top:10px;border-radius:20px">.</div></div>').join('');
+}
 async function loadDashboard(){
+  dashSkeleton();
   await fetchInvoices();
   $('dashSource').textContent=histSourceText;
   renderDashClients();
