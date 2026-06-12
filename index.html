@@ -263,10 +263,7 @@
       <div class="section-title">Customer</div>
       <div class="field">
         <label>ชื่อลูกค้า / Customers (เลือกจาก Vendor)</label>
-        <div style="display:flex;gap:8px">
-          <select id="tcustSelect" onchange="onTaxVendorSelect()" style="flex:1"><option value="">— เลือกลูกค้า —</option></select>
-          <button class="btn ghost" type="button" onclick="openVendorModal('tcustSelect')" style="white-space:nowrap">+ Vendor ใหม่</button>
-        </div>
+        <select id="tcustSelect" onchange="onTaxVendorSelect()" style="width:100%"><option value="">— เลือกลูกค้า —</option></select>
         <input type="hidden" id="tcustName">
       </div>
       <div class="field"><label>ที่อยู่ / Address</label><textarea id="tcustAddr" placeholder="เลือก Vendor แล้วเติมอัตโนมัติ"></textarea></div>
@@ -281,7 +278,10 @@
         <div class="field"><label>เครดิต (วัน) / Credit</label><input id="tcredit" type="number" min="0" value="0"></div>
         <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
       </div>
-      <div class="field"><label>อ้างอิง / Reference</label><input id="tref" placeholder="QT..."></div>
+      <div class="field">
+        <label>อ้างอิง / Reference — เลือก Invoice ค้างชำระของลูกค้า (prefill รายการอัตโนมัติ)</label>
+        <select id="trefSelect" onchange="onTaxRefSelect()" style="width:100%"><option value="">— เลือกลูกค้าก่อน —</option></select>
+      </div>
 
       <div class="section-title">Items</div>
       <table class="items titems" style="width:100%">
@@ -746,7 +746,9 @@ async function generatePDF(){
     const meta={
       no:$('docNo').value, customer:$('custName').value, date:$('docDate').value,
       net:net, createdAt:new Date().toISOString(), filename:fname,
-      subject:firstDetail, status:'open'
+      subject:firstDetail, status:'open',
+      custAddr:$('custAddr').value, custTax:$('custTax').value,
+      items:getItems().map(i=>({detail:i.detail, amount:i.amount}))
     };
     const b64=pdf.output('datauristring').split(',')[1];
     await saveHistory(meta,b64);
@@ -759,7 +761,7 @@ async function generatePDF(){
 /* ---------- history storage ---------- */
 async function saveHistory(meta,b64){
   if(window.FB_READY){
-    try{ await window.fbSave(meta,b64); return; }
+    try{ return await window.fbSave(meta,b64); }
     catch(e){ console.warn('Firebase save failed, fallback to local',e); }
   }
   if(CONFIG.SCRIPT_URL){
@@ -768,12 +770,23 @@ async function saveHistory(meta,b64){
         method:'POST',
         body:JSON.stringify({action:'save',folderId:CONFIG.DRIVE_FOLDER_ID,meta,pdfBase64:b64})
       });
-      return;
+      return {...meta, id:meta.no};
     }catch(e){ console.warn('Drive save failed, fallback to local',e); }
   }
+  const rec={...meta, id:meta.id||meta.no, _localPdf:'data:application/pdf;base64,'+b64};
   const list=JSON.parse(localStorage.getItem('invoices')||'[]');
-  list.unshift({...meta, _localPdf:'data:application/pdf;base64,'+b64});
+  list.unshift(rec);
   localStorage.setItem('invoices',JSON.stringify(list.slice(0,100)));
+  return rec;
+}
+async function linkSourceInvoice(srcId, taxRec){
+  const fields={ status:'paid', taxInvoiceId: taxRec.id||taxRec.no||'', taxInvoiceNo: taxRec.no||'' };
+  if(window.FB_READY && window.fbUpdateInvoice){
+    try{ await window.fbUpdateInvoice(srcId, fields); return; }catch(e){ console.warn('link fail',e); }
+  }
+  const local=JSON.parse(localStorage.getItem('invoices')||'[]');
+  const m=local.find(x=>(x.id||x.no)===srcId || x.no===srcId);
+  if(m){ Object.assign(m,fields); localStorage.setItem('invoices',JSON.stringify(local)); }
 }
 
 let histData=[]; let histFilter='all';
@@ -932,15 +945,25 @@ function renderHist(){
     if(it.downloadUrl) dl=`<a class="link" href="${it.downloadUrl}" target="_blank">⬇ ดาวน์โหลด</a>`;
     else if(it.webViewLink) dl=`<a class="link" href="${it.webViewLink}" target="_blank">⬇ เปิด</a>`;
     else if(it._localPdf) dl=`<a class="link" href="${it._localPdf}" download="${it.filename||'invoice.pdf'}">⬇ ดาวน์โหลด</a>`;
+    // ลิงก์ไปใบกำกับภาษี/ใบเสร็จที่ผูกกันไว้
+    let taxLink='';
+    if(it.taxInvoiceId){
+      const tx=histData.find(x=>(x.id||x.no)===it.taxInvoiceId);
+      const turl=tx?(tx.downloadUrl||tx.webViewLink||tx._localPdf):'';
+      taxLink= turl
+        ? `<br><a class="link" href="${turl}" target="_blank" style="color:#5f8f18">🧾 ใบกำกับภาษี ${esc(it.taxInvoiceNo||'')}</a>`
+        : `<br><span class="badge" style="background:#eef7d9;color:#5f8f18">🧾 ${esc(it.taxInvoiceNo||'ออกแล้ว')}</span>`;
+    }
+    const docBadge = it.docType==='tax' ? '🧾' : '📄';
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td><div class="numcell"><span class="ic">📄</span>${esc(it.no||'-')}</div></td>
+      <td><div class="numcell"><span class="ic">${docBadge}</span>${esc(it.no||'-')}</div></td>
       <td><div class="client"><span class="avatar" style="background:${avaColor(it.customer)}">${esc(initial)}</span>${esc(it.customer||'-')}</div></td>
       <td>${esc(fmtDate(it.date))}</td>
       <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
       <td><button class="spill ${sm.cls}" title="คลิกเพื่อเปลี่ยนสถานะ" onclick="cycleStatus(${idx})">${sm.label}</button></td>
       <td class="subj">${esc(it.subject||'-')}</td>
-      <td style="text-align:right">${dl}</td>`;
+      <td style="text-align:right">${dl}${taxLink}</td>`;
     body.appendChild(tr);
   });
 }
@@ -1018,7 +1041,7 @@ function buildTaxInvoiceHTML(isCopy){
   });
   if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td></td><td></td><td></td><td class="c-amt">0.00</td></tr>`;
   const credit=Number(val('tcredit'))||0;
-  const note=val('tdocNote'); const sp=val('tsalesperson'); const ref=val('tref');
+  const note=val('tdocNote'); const sp=val('tsalesperson'); const ref=taxSource?taxSource.no:'';
   const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
   return `
   <div class="inv-corner"><span>1</span></div>
@@ -1091,15 +1114,40 @@ function validateTax(){
   return errs;
 }
 function setTaxStatus(msg,type){ const el=$('taxFormStatus'); el.className='status show '+type; el.innerHTML=msg; }
-function onTaxVendorSelect(){
+let taxSource=null;
+async function onTaxVendorSelect(){
   const v=vendorData.find(x=>x.id===$('tcustSelect').value);
   if(v){ $('tcustName').value=v.name||''; $('tcustAddr').value=v.address||''; $('tcustTax').value=v.taxId||''; }
-  else { $('tcustName').value=''; }
+  else { $('tcustName').value=''; $('tcustAddr').value=''; $('tcustTax').value=''; }
+  taxSource=null;
+  await populateTaxRefDropdown(v?v.name:'');
+  renderTaxPreview(false);
+}
+async function populateTaxRefDropdown(vendorName){
+  const sel=$('trefSelect'); if(!sel) return;
+  if(!vendorName){ sel.innerHTML='<option value="">— เลือกลูกค้าก่อน —</option>'; return; }
+  await fetchInvoices();
+  const open=histData.filter(i=>(i.customer||'')===vendorName && i.status==='open' && i.docType!=='tax');
+  if(open.length===0){ sel.innerHTML='<option value="">— ไม่มี Invoice ค้างชำระ —</option>'; return; }
+  sel.innerHTML='<option value="">— เลือก Invoice —</option>'+open.map(i=>`<option value="${i.id||i.no}">${esc(i.no)} · ${fmt(i.net)} บาท</option>`).join('');
+}
+function onTaxRefSelect(){
+  const idv=$('trefSelect').value;
+  const inv=histData.find(i=>(i.id||i.no)===idv);
+  taxSource=inv||null;
+  if(inv){
+    if(inv.custAddr) $('tcustAddr').value=inv.custAddr;
+    if(inv.custTax) $('tcustTax').value=inv.custTax;
+    $('titemsBody').innerHTML='';
+    if(inv.items && inv.items.length){ inv.items.forEach(it=>addTaxItem(it.detail||'',1,'',Number(it.amount)||0)); }
+    else { const pre=Math.round(((Number(inv.net)||0)/1.07)*100)/100; addTaxItem(inv.subject||'',1,'',pre); }
+  }
   renderTaxPreview(false);
 }
 function resetTaxForm(){
-  ['tcustName','tcustAddr','tcustTax','tdocNo','tsalesperson','tref','tdocNote'].forEach(id=>$(id).value='');
+  ['tcustName','tcustAddr','tcustTax','tdocNo','tsalesperson','tdocNote'].forEach(id=>$(id).value='');
   const cs=$('tcustSelect'); if(cs) cs.value=''; $('tcredit').value='0';
+  taxSource=null; const rs=$('trefSelect'); if(rs) rs.innerHTML='<option value="">— เลือกลูกค้าก่อน —</option>';
   $('titemsBody').innerHTML=''; addTaxItem();
   $('tEmptyPreview').classList.remove('hidden'); $('tpaper').classList.add('hidden');
   setTaxStatus('',''); $('taxFormStatus').className='status';
@@ -1130,10 +1178,15 @@ async function generateTaxPDF(){
     const fname=((val('tdocNo')||'tax-invoice').replace(/[^\w\-]/g,'_'))+'.pdf';
     pdf.save(fname);
     const firstDetail=(getTaxItems()[0]?.detail||'').split('\n')[0].slice(0,60);
-    const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'tax' };
+    const srcId=taxSource?(taxSource.id||taxSource.no):'';
+    const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'paid', docType:'tax',
+      custAddr:val('tcustAddr'), custTax:val('tcustTax'),
+      sourceInvoiceId:srcId, sourceInvoiceNo:(taxSource?taxSource.no:''),
+      items:getTaxItems().map(i=>({detail:i.detail,qty:i.qty,unit:i.unit,price:i.price,amount:i.amount})) };
     const b64=pdf.output('datauristring').split(',')[1];
-    await saveHistory(meta,b64);
-    setTaxStatus('✅ สร้างใบกำกับภาษีสำเร็จ และบันทึกประวัติแล้ว','ok');
+    const savedRec=await saveHistory(meta,b64);
+    if(srcId && savedRec){ await linkSourceInvoice(srcId, savedRec); }
+    setTaxStatus(srcId?'✅ สร้างใบกำกับภาษีสำเร็จ · เปลี่ยนสถานะ Invoice อ้างอิงเป็น "ชำระแล้ว" และผูกลิงก์แล้ว':'✅ สร้างใบกำกับภาษีสำเร็จ และบันทึกประวัติแล้ว','ok');
   }catch(e){ console.error(e); setTaxStatus('❌ เกิดข้อผิดพลาด: '+e.message,'err'); }
   finally{ btn.disabled=false; }
 }
@@ -1371,6 +1424,7 @@ if (firebaseConfig.projectId) {
       return items;
     };
     window.fbUpdateStatus = async (id, status) => updateDoc(doc(db, COL, id), { status });
+    window.fbUpdateInvoice = async (id, fields) => updateDoc(doc(db, COL, id), fields);
 
     // โลโก้บริษัท เก็บใน Firestore (settings/company) ใช้ร่วมกันทุกเครื่อง
     window.fbSetLogo = async (dataUri) => setDoc(doc(db, "settings", "company"), { logo: dataUri }, { merge: true });
