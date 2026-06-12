@@ -115,6 +115,15 @@
   .paper.theme-green table.lines thead th{background:#eef7d9;color:#4d7a0f;border-color:#cfe6a0}
   .paper.theme-green .totals tr.net .val{color:#5f8f18}
   .paper.theme-green .note .hd{color:#6f9e1f}
+  /* Quotation amber theme */
+  .paper.theme-amber .inv-corner{border-top-color:#e08a1e}
+  .paper.theme-amber .doc-title .t{color:#b9710f}
+  .paper.theme-amber .meta-box{border-color:#f0d9b0;background:#fdf7ec}
+  .paper.theme-amber .meta-box .l b{color:#b9710f}
+  .paper.theme-amber .cust .hd{color:#b9710f}
+  .paper.theme-amber table.lines thead th{background:#fbeed5;color:#8a5a10;border-color:#eed9ad}
+  .paper.theme-amber .totals tr.net .val{color:#b9710f}
+  .paper.theme-amber .note .hd{color:#c8801a}
   /* tax invoice item table (more columns) */
   table.titems{table-layout:fixed;width:100%}
   table.titems input,table.titems textarea{width:100%;box-sizing:border-box;padding:7px 6px;font-size:13px}
@@ -225,6 +234,7 @@
   </div>
   <div class="tabs">
     <button class="tab active" id="tab-dashboard" onclick="showTab('dashboard')">🏠 Home</button>
+    <button class="tab" id="tab-quotation" onclick="showTab('quotation')">📝 Quotation</button>
     <button class="tab" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
     <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')">🧾 Tax Invoice</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
@@ -292,6 +302,65 @@
       <div class="paper-scroll" id="paperScroll">
         <div class="empty-preview" id="emptyPreview">กรอกข้อมูลแล้วกด <b>Preview</b> เพื่อดูตัวอย่างใบแจ้งหนี้</div>
         <div class="paper hidden" id="paper"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= QUOTATION TAB ================= -->
+<div class="wrap hidden" id="view-quotation">
+  <div class="layout">
+    <div class="card">
+      <h2>Quotation Details / ใบเสนอราคา</h2>
+      <div class="section-title">Customer</div>
+      <div class="field">
+        <label>ชื่อลูกค้า / Customers (เลือกจาก Vendor)</label>
+        <div style="display:flex;gap:8px">
+          <select id="qcustSelect" onchange="onQVendorSelect()" style="flex:1"><option value="">— เลือกลูกค้า —</option></select>
+          <button class="btn ghost" type="button" onclick="openVendorModal('qcustSelect')" style="white-space:nowrap">+ Vendor ใหม่</button>
+        </div>
+        <input type="hidden" id="qcustName">
+      </div>
+      <div class="field"><label>ที่อยู่ / Address</label><textarea id="qcustAddr" placeholder="เลือก Vendor แล้วเติมอัตโนมัติ"></textarea></div>
+      <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input id="qcustTax" placeholder="0000000000000"></div>
+
+      <div class="section-title">Document</div>
+      <div class="row2">
+        <div class="field"><label>เลขที่ / No. (รันอัตโนมัติ)</label><input id="qdocNo" placeholder="เลือกลูกค้าเพื่อรันเลข"></div>
+        <div class="field"><label>วันที่ / Date</label><input id="qdocDate" type="date" onchange="updateQuotationNo()"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>ยืนราคาถึง / Valid until</label><input id="qvalid" type="date"></div>
+        <div class="field"><label>ผู้เสนอราคา</label><input id="qsalesperson" placeholder="ชื่อผู้เสนอราคา"></div>
+      </div>
+
+      <div class="section-title">Items</div>
+      <table class="items" style="width:100%">
+        <thead><tr><th style="width:36px">#</th><th>รายละเอียด</th><th style="width:110px">จำนวนเงิน</th><th style="width:34px"></th></tr></thead>
+        <tbody id="qitemsBody"></tbody>
+      </table>
+      <button class="btn add" onclick="addQItem()">+ เพิ่มรายการ</button>
+
+      <div class="section-title">Note</div>
+      <div class="field"><textarea id="qdocNote" placeholder="เงื่อนไข / หมายเหตุ"></textarea></div>
+
+      <div class="totbox" id="qtotSummary"></div>
+      <div class="actions">
+        <button class="btn green" id="btnQPdf" onclick="generateQuotationPDF()">⬇ Generate PDF</button>
+        <button class="btn ghost" onclick="resetQForm()">ล้างฟอร์ม</button>
+      </div>
+      <div class="hint">VAT 7% อัตโนมัติ · เลขรันรูปแบบ {ClientID}-Q{yyMMdd}-{NNN}</div>
+      <div class="status" id="qFormStatus"></div>
+    </div>
+
+    <div class="card preview-pane">
+      <div class="toolbar">
+        <h2 style="margin:0">ตัวอย่าง / Preview</h2>
+        <label class="hint" style="margin-left:auto;display:flex;gap:5px;align-items:center"><input type="checkbox" id="qcopyToggle" onchange="renderQPreview()"> แสดง "สำเนา (Copy)"</label>
+      </div>
+      <div class="paper-scroll" id="qpaperScroll">
+        <div class="empty-preview" id="qEmptyPreview">กรอกข้อมูลเพื่อดูตัวอย่าง</div>
+        <div class="paper theme-amber hidden" id="qpaper"></div>
       </div>
     </div>
   </div>
@@ -964,6 +1033,7 @@ function dlLink(it){
 function groupByClient(){
   const map={};
   histData.forEach(it=>{
+    if(it.docType==='qt') return; // ใบเสนอราคาไม่นับในแดชบอร์ดลูกค้า
     const key=(it.customer||'ไม่ระบุลูกค้า').trim()||'ไม่ระบุลูกค้า';
     if(!map[key]) map[key]={name:key, items:[], total:0, byStatus:{}};
     map[key].items.push(it);
@@ -992,11 +1062,12 @@ function renderDashClients(){
   $('dashClients').classList.remove('hidden');
   $('dashKpis').classList.remove('hidden');
   const groups=groupByClient();
-  const totalAmt=histData.filter(i=>i.status!=='cancelled').reduce((a,i)=>a+(Number(i.net)||0),0); // ไม่รวมยกเลิก
-  const outstanding=histData.filter(i=>i.status==='open'||i.status==='overdue').reduce((a,i)=>a+(Number(i.net)||0),0);
+  const totalAmt=histData.filter(i=>i.status!=='cancelled'&&i.docType!=='qt').reduce((a,i)=>a+(Number(i.net)||0),0); // ไม่รวมยกเลิก/ใบเสนอราคา
+  const outstanding=histData.filter(i=>(i.status==='open'||i.status==='overdue')&&i.docType!=='qt').reduce((a,i)=>a+(Number(i.net)||0),0);
+  const invCount=histData.filter(i=>i.docType!=='qt').length;
   $('dashKpis').innerHTML=`
     <div class="kpi"><div class="k">ลูกค้าทั้งหมด</div><div class="v">${groups.length}</div></div>
-    <div class="kpi"><div class="k">ใบแจ้งหนี้ทั้งหมด</div><div class="v">${histData.length}</div></div>
+    <div class="kpi"><div class="k">ใบแจ้งหนี้ทั้งหมด</div><div class="v">${invCount}</div></div>
     <div class="kpi"><div class="k">ยอดรวมทั้งหมด (บาท)</div><div class="v brand">${fmt(totalAmt)}</div></div>
     <div class="kpi"><div class="k">ยอดค้างชำระ (บาท)</div><div class="v" style="color:#6d28d9">${fmt(outstanding)}</div></div>`;
   if(groups.length===0){ $('dashClients').innerHTML=''; $('dashEmpty').classList.remove('hidden'); return; }
@@ -1123,11 +1194,13 @@ function renderHist(){
         ? `<br><a class="link" href="${turl}" target="_blank" style="color:#5f8f18">🧾 ใบกำกับภาษี ${esc(it.taxInvoiceNo||'')}</a>`
         : `<br><span class="badge" style="background:#eef7d9;color:#5f8f18">🧾 ${esc(it.taxInvoiceNo||'ออกแล้ว')}</span>`;
     }
-    const isTax = it.docType==='tax';
-    const docBadge = isTax ? '🧾' : '📄';
-    const typeBadge = isTax
+    const dt = it.docType==='tax'?'tax':(it.docType==='qt'?'qt':'inv');
+    const docBadge = dt==='tax'?'🧾':(dt==='qt'?'📝':'📄');
+    const typeBadge = dt==='tax'
       ? '<span class="badge" style="background:#eef7d9;color:#5f8f18">🧾 Tax Invoice</span>'
-      : '<span class="badge">📄 Invoice</span>';
+      : (dt==='qt'
+        ? '<span class="badge" style="background:#fbeed5;color:#b9710f">📝 Quotation</span>'
+        : '<span class="badge">📄 Invoice</span>');
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><div class="numcell"><span class="ic">${docBadge}</span>${esc(it.no||'-')}</div></td>
@@ -1137,12 +1210,34 @@ function renderHist(){
       <td>${statusSelectHTML(idx, it.status)}</td>
       <td class="subj">${esc(it.subject||'-')}</td>
       <td>${typeBadge}</td>
-      <td style="text-align:right">${dl}${taxLink}${perm().create?`<br><a class="link" onclick="duplicateDoc(${idx})">📋 คัดลอก/ออกใหม่</a>`:''}</td>`;
+      <td style="text-align:right">${dl}${taxLink}${(dt==='qt'&&perm().create)?`<br><a class="link" style="color:#3b54e0" onclick="convertQtToInvoice(${idx})">→ ออก Invoice</a>`:''}${perm().create?`<br><a class="link" onclick="duplicateDoc(${idx})">📋 คัดลอก/ออกใหม่</a>`:''}</td>`;
     body.appendChild(tr);
   });
 }
+function fillInvoiceForm(it){
+  showTab('create');
+  const v=vendorData.find(x=>(it.vendorId&&x.id===it.vendorId)||x.name===it.customer||(it.custTax&&x.taxId===it.custTax));
+  if(v){ $('custSelect').value=v.id; onVendorSelect(); }
+  else { $('custSelect').value=''; $('custName').value=it.customer||''; $('custAddr').value=it.custAddr||''; $('custTax').value=it.custTax||''; }
+  $('itemsBody').innerHTML='';
+  const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,amount:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
+  items.forEach(x=>addItem(x.detail||'', (x.amount!=null?x.amount:0)));
+  $('docNote').value=it.note||''; renderPreview(false); window.scrollTo({top:0,behavior:'smooth'});
+}
+function convertQtToInvoice(idx){ const it=histData[idx]; if(it) fillInvoiceForm(it); }
 function duplicateDoc(idx){
   const it=histData[idx]; if(!it) return;
+  if(it.docType==='qt'){
+    showTab('quotation');
+    const v=vendorData.find(x=>(it.vendorId&&x.id===it.vendorId)||x.name===it.customer||(it.custTax&&x.taxId===it.custTax));
+    if(v){ $('qcustSelect').value=v.id; onQVendorSelect(); }
+    else { $('qcustSelect').value=''; $('qcustName').value=it.customer||''; $('qcustAddr').value=it.custAddr||''; $('qcustTax').value=it.custTax||''; }
+    $('qitemsBody').innerHTML='';
+    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,amount:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
+    items.forEach(x=>addQItem(x.detail||'', (x.amount!=null?x.amount:0)));
+    $('qdocNote').value=it.note||''; renderQPreview(false); window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
   if(it.docType==='tax'){
     showTab('taxinvoice');
     const v=vendorData.find(x=>(it.vendorId&&x.id===it.vendorId)||x.name===it.customer||(it.custTax&&x.taxId===it.custTax));
@@ -1493,7 +1588,7 @@ async function saveVendorForm(){
 function populateVendorDropdown(){
   const list=[...vendorData].sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
   const opts='<option value="">— เลือกลูกค้า —</option>'+list.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
-  ['custSelect','tcustSelect'].forEach(id=>{ const sel=$(id); if(!sel) return; const cur=sel.value; sel.innerHTML=opts; if(cur && list.some(v=>v.id===cur)) sel.value=cur; });
+  ['custSelect','tcustSelect','qcustSelect'].forEach(id=>{ const sel=$(id); if(!sel) return; const cur=sel.value; sel.innerHTML=opts; if(cur && list.some(v=>v.id===cur)) sel.value=cur; });
 }
 /* ===== เลขรันเอกสารอัตโนมัติ ===== */
 function pad3(n){ return ('00'+Math.max(0,n)).slice(-3); }
@@ -1558,7 +1653,9 @@ async function saveVendorModal(){
   const rec=await saveVendor(v);
   await fetchVendors(); populateVendorDropdown();
   $(vendorModalTarget).value=rec.id;
-  if(vendorModalTarget==='tcustSelect') onTaxVendorSelect(); else onVendorSelect();
+  if(vendorModalTarget==='tcustSelect') onTaxVendorSelect();
+  else if(vendorModalTarget==='qcustSelect') onQVendorSelect();
+  else onVendorSelect();
   closeVendorModal();
 }
 window.onFbReady=async function(){ try{ await fetchVendors(); populateVendorDropdown(); }catch(e){} };
@@ -1618,6 +1715,7 @@ window.handleAuthState = async function(user){
 };
 function applyRoleUI(){
   const p=perm();
+  $('tab-quotation').classList.toggle('hidden',!p.create);
   $('tab-create').classList.toggle('hidden',!p.create);
   $('tab-taxinvoice').classList.toggle('hidden',!p.create);
   $('tab-settings').classList.toggle('hidden',!p.settings);
@@ -1698,6 +1796,99 @@ window.seedAdmins = async function(){
   return {created:done};
 };
 
+/* ============== QUOTATION (ใบเสนอราคา) ============== */
+function addQItem(detail='',amount=''){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td style="text-align:center;color:#9aa0aa" class="qrownum"></td>
+    <td><textarea class="qi-detail" rows="2" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
+    <td><input class="qi-amt amt" type="number" step="0.01" value="${amount}" placeholder="0.00"></td>
+    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncQTotals()">×</button></td>`;
+  $('qitemsBody').appendChild(tr);
+  tr.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',syncQTotals));
+  syncQTotals();
+}
+function getQItems(){ return [...document.querySelectorAll('#qitemsBody tr')].map(tr=>({detail:tr.querySelector('.qi-detail').value, amount:Number(tr.querySelector('.qi-amt').value)||0})); }
+function calcQ(){ const items=getQItems(); const sub=items.reduce((a,i)=>a+i.amount,0); const vat=Math.round(sub*7)/100; const net=Math.round((sub+vat)*100)/100; return {items,sub,vat,net}; }
+function syncQTotals(){
+  document.querySelectorAll('#qitemsBody tr').forEach((tr,i)=>tr.querySelector('.qrownum').textContent=i+1);
+  const {sub,vat,net}=calcQ();
+  $('qtotSummary').innerHTML=`<div class="line"><span>รวมเป็นเงิน</span><b>${fmt(sub)}</b></div><div class="line"><span>VAT 7%</span><b>${fmt(vat)}</b></div><div class="line net"><span>รวมทั้งสิ้น</span><span>${fmt(net)} บาท</span></div>`;
+  renderQPreview(false);
+}
+function buildQuotationHTML(isCopy){
+  const {items,sub,vat,net}=calcQ();
+  let rows=''; items.forEach((it,i)=>{ rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td><td class="c-amt">${fmt(it.amount)}</td></tr>`; });
+  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td class="c-amt">0.00</td></tr>`;
+  const note=val('qdocNote'), sp=val('qsalesperson'), valid=val('qvalid');
+  const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
+  return `
+  <div class="inv-corner"><span>1</span></div>
+  <div class="inv-head">
+    <div class="logo"><img src="${logoData||DEFAULT_LOGO}"></div>
+    <div class="co"><div class="th">${esc(val('sellerThai'))}</div><div class="en">${esc(val('sellerEn'))}</div>
+      <div>${nl2br(val('sellerAddr'))}</div><div>เลขประจำตัวผู้เสียภาษี ${esc(val('sellerTax'))}</div>
+      ${val('sellerPhone')?`<div>เบอร์โทร ${esc(val('sellerPhone'))}</div>`:''}</div>
+    <div class="doc-title"><div class="t">ใบเสนอราคา</div><div class="copy">${isCopy?'สำเนา (Copy)':'ต้นฉบับ (Original)'}</div>
+      <div class="meta-box">
+        <div class="l"><b>เลขที่</b><span>${esc(val('qdocNo'))}</span></div>
+        <div class="l"><b>วันที่</b><span>${fmtDate(val('qdocDate'))}</span></div>
+        ${valid?`<div class="l"><b>ยืนราคาถึง</b><span>${fmtDate(valid)}</span></div>`:''}
+        ${sp?`<div class="l"><b>ผู้เสนอราคา</b><span>${esc(sp)}</span></div>`:''}
+      </div></div>
+  </div>
+  <div class="cust"><div class="hd">ลูกค้า / Customer</div><div>${esc(val('qcustName'))}</div><div>${nl2br(val('qcustAddr'))}</div><div>เลขประจำตัวผู้เสียภาษี ${esc(val('qcustTax'))}</div></div>
+  <table class="lines"><thead><tr><th class="c c-no">#</th><th class="l">รายละเอียด</th><th class="c-amt">จำนวนเงิน</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="totals"><table>
+    <tr><td class="lab">รวมเป็นเงิน</td><td class="val">${fmt(sub)} บาท</td></tr>
+    <tr><td class="lab">ภาษีมูลค่าเพิ่ม 7%</td><td class="val">${fmt(vat)} บาท</td></tr>
+    <tr class="net"><td class="lab">รวมทั้งสิ้น</td><td class="val">${fmt(net)} บาท</td></tr>
+  </table></div>
+  <div class="baht">(ตัวอักษร) ${esc(bahtText(net))}</div>
+  ${note?`<div class="note"><span class="hd">หมายเหตุ</span><br>${nl2br(note)}</div>`:''}
+  <div class="sign">
+    <div class="slot"><div class="nm">&nbsp;</div><div class="two"><div><div class="ln"></div>ผู้อนุมัติ (ลูกค้า)</div><div><div class="ln"></div>วันที่</div></div></div>
+    <div class="slot"><div class="nm">ในนาม ${esc(sellerName)}</div><div class="two"><div><div class="ln"></div>ผู้เสนอราคา</div><div><div class="ln"></div>วันที่</div></div></div>
+  </div>`;
+}
+function renderQPreview(scroll){ $('qEmptyPreview').classList.add('hidden'); $('qpaper').classList.remove('hidden'); $('qpaper').innerHTML=buildQuotationHTML($('qcopyToggle').checked); if(scroll) $('qpaperScroll').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function validateQ(){ const e=[]; if(!val('qcustName').trim()) e.push('กรุณาเลือกลูกค้า'); if(!val('qdocNo').trim()) e.push('กรุณากรอกเลขที่'); if(!val('qdocDate')) e.push('กรุณาเลือกวันที่'); const {sub}=calcQ(); if(sub<=0) e.push('กรุณาเพิ่มรายการ'); return e; }
+function setQStatus(m,t){ const el=$('qFormStatus'); el.className='status show '+(t||''); el.innerHTML=m; }
+function onQVendorSelect(){
+  const v=vendorData.find(x=>x.id===$('qcustSelect').value);
+  if(v){ $('qcustName').value=v.name||''; $('qcustAddr').value=v.address||''; $('qcustTax').value=v.taxId||''; updateQuotationNo(); }
+  else { $('qcustName').value=''; }
+  renderQPreview(false);
+}
+async function updateQuotationNo(){ const v=vendorData.find(x=>x.id===$('qcustSelect').value); if(!v) return; try{await fetchInvoices();}catch(e){} $('qdocNo').value=genDocNo('qt', clientCode(v), val('qdocDate')); renderQPreview(false); }
+function resetQForm(){ ['qcustName','qcustAddr','qcustTax','qdocNo','qsalesperson','qdocNote','qvalid'].forEach(id=>$(id).value=''); const cs=$('qcustSelect'); if(cs) cs.value=''; $('qitemsBody').innerHTML=''; addQItem(); $('qEmptyPreview').classList.remove('hidden'); $('qpaper').classList.add('hidden'); $('qFormStatus').className='status'; }
+async function generateQuotationPDF(){
+  const errs=validateQ(); if(errs.length){ setQStatus('⚠ '+errs.join('<br>⚠ '),'err'); return; }
+  renderQPreview();
+  const btn=$('btnQPdf'); btn.disabled=true; setQStatus('⏳ กำลังสร้าง PDF...','info');
+  try{
+    const {net}=calcQ(); const {jsPDF}=window.jspdf; const pdf=new jsPDF('p','mm','a4'); const pw=210,ph=297;
+    let holder=document.getElementById('pdfHolder'); if(!holder){ holder=document.createElement('div'); holder.id='pdfHolder'; holder.style.position='fixed'; holder.style.left='-10000px'; holder.style.top='0'; document.body.appendChild(holder); }
+    holder.className='paper theme-amber'; holder.style.width='760px'; holder.style.minHeight='1075px'; holder.style.boxShadow='none'; holder.style.background='#fff';
+    let first=true;
+    for(const isCopy of [false,true]){
+      holder.innerHTML=buildQuotationHTML(isCopy); await new Promise(r=>setTimeout(r,40));
+      const canvas=await html2canvas(holder,{scale:2,useCORS:true,backgroundColor:'#fff'}); const img=canvas.toDataURL('image/jpeg',0.95);
+      const ih=canvas.height*pw/canvas.width; const pages=Math.max(1,Math.ceil((ih-4)/ph));
+      for(let p=0;p<pages;p++){ if(!first) pdf.addPage(); first=false; pdf.addImage(img,'JPEG',0,-p*ph,pw,ih); }
+    }
+    holder.innerHTML='';
+    const fname=((val('qdocNo')||'quotation').replace(/[^\w\-]/g,'_'))+'.pdf'; pdf.save(fname);
+    const firstDetail=(getQItems()[0]?.detail||'').split('\n')[0].slice(0,60);
+    const selV=vendorData.find(x=>x.id===val('qcustSelect'));
+    const meta={ no:val('qdocNo'), customer:val('qcustName'), date:val('qdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'qt', custAddr:val('qcustAddr'), custTax:val('qcustTax'), vendorId:val('qcustSelect'), clientId:(selV?clientCode(selV):''), items:getQItems().map(i=>({detail:i.detail,amount:i.amount})) };
+    const b64=pdf.output('datauristring').split(',')[1];
+    await saveHistory(meta,b64);
+    setQStatus('✅ สร้างใบเสนอราคาสำเร็จ และบันทึกแล้ว','ok');
+  }catch(e){ console.error(e); setQStatus('❌ '+e.message,'err'); }
+  finally{ btn.disabled=false; }
+}
+
 /* ============== REPORTS (รายงานภาษีขาย ภพ.30) ============== */
 function repFilteredDocs(){
   const type=$('repType').value, from=$('repFrom').value, to=$('repTo').value;
@@ -1757,7 +1948,7 @@ function exportReportsCSV(){
 
 /* ---------- tabs ---------- */
 function showTab(t){
-  ['create','taxinvoice','dashboard','vendor','history','reports','settings','admin'].forEach(x=>{
+  ['create','quotation','taxinvoice','dashboard','vendor','history','reports','settings','admin'].forEach(x=>{
     $('tab-'+x).classList.toggle('active',t===x);
     $('view-'+x).classList.toggle('hidden',t!==x);
   });
@@ -1765,6 +1956,7 @@ function showTab(t){
   if(t==='dashboard') loadDashboard();
   if(t==='vendor') loadVendors();
   if(t==='taxinvoice') renderTaxPreview(false);
+  if(t==='quotation') renderQPreview(false);
   if(t==='admin') loadAdminUsers();
   if(t==='reports') loadReports();
 }
@@ -1817,10 +2009,12 @@ function liveRender(){
   loadLocalSettings(); // โหลด seller/company จาก localStorage (ก่อน Firebase พร้อม)
   applyLogoThumb();
   // live update preview — แยกตาม view
-  let tTimer=null;
+  let tTimer=null,qTimer=null;
   const liveTax=()=>{ clearTimeout(tTimer); tTimer=setTimeout(()=>renderTaxPreview(false),120); };
+  const liveQ=()=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>renderQPreview(false),120); };
   const onEdit=e=>{
     if(e.target.closest('#view-taxinvoice')) liveTax();
+    else if(e.target.closest('#view-quotation')) liveQ();
     else if(e.target.closest('#view-create,#view-settings')) liveRender();
   };
   document.body.addEventListener('input',onEdit);
@@ -1831,6 +2025,7 @@ function liveRender(){
   $('tdocDate').value=new Date().toISOString().slice(0,10);
   $('tdocNo').value=''; // เลขรันอัตโนมัติเมื่อเลือกลูกค้า
   addTaxItem('',1,'',''); renderTaxPreview(false);
+  $('qdocDate').value=new Date().toISOString().slice(0,10); $('qdocNo').value=''; addQItem('',''); renderQPreview(false);
   try{ $('authLogo').src=logoData||DEFAULT_LOGO; }catch(e){}
   // หน้าแรกหลัง login = Dashboard (จัดการใน handleAuthState) — ก่อน login จะเจอหน้า Login ก่อน
 })();
