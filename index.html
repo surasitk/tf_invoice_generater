@@ -129,6 +129,7 @@
   .s-paid{background:#dcfce7;color:#15803d}
   .s-overdue{background:#ffe4e6;color:#be123c}
   .s-draft{background:#dbeafe;color:#1d4ed8}
+  .s-cancelled{background:#f1f1f4;color:#6b7280;text-decoration:line-through}
   .link{color:var(--brand);text-decoration:none;font-weight:600;cursor:pointer}
   .subj{color:#4b5563}
   .hidden{display:none !important}
@@ -235,6 +236,7 @@
         <button class="fpill" data-f="open" onclick="setFilter('open')">ค้างชำระ <span class="cnt" id="c-open">0</span></button>
         <button class="fpill" data-f="overdue" onclick="setFilter('overdue')">เกินกำหนด <span class="cnt" id="c-overdue">0</span></button>
         <button class="fpill" data-f="paid" onclick="setFilter('paid')">ชำระแล้ว <span class="cnt" id="c-paid">0</span></button>
+        <button class="fpill" data-f="cancelled" onclick="setFilter('cancelled')">ยกเลิก <span class="cnt" id="c-cancelled">0</span></button>
       </div>
       <input id="histSearch" class="hsearch" placeholder="🔍 ค้นหา เลขที่ / ลูกค้า / รายละเอียด" oninput="renderHist()">
     </div>
@@ -532,9 +534,10 @@ async function saveHistory(meta,b64){
 let histData=[]; let histFilter='all';
 const STATUS_META={
   open:{cls:'s-open',label:'ค้างชำระ'}, paid:{cls:'s-paid',label:'ชำระแล้ว'},
-  overdue:{cls:'s-overdue',label:'เกินกำหนด'}, draft:{cls:'s-draft',label:'ร่าง'}
+  overdue:{cls:'s-overdue',label:'เกินกำหนด'}, draft:{cls:'s-draft',label:'ร่าง'},
+  cancelled:{cls:'s-cancelled',label:'ยกเลิก'}
 };
-const STATUS_CYCLE=['open','paid','overdue','draft'];
+const STATUS_CYCLE=['open','paid','overdue','draft','cancelled'];
 const AVA_COLORS=['#4f6bff','#7c3aed','#0ea5e9','#f59e0b','#ec4899','#10b981','#ef4444','#6366f1'];
 function avaColor(s){ let h=0; for(const c of (s||'?')) h=(h*31+c.charCodeAt(0))%AVA_COLORS.length; return AVA_COLORS[h]; }
 
@@ -564,7 +567,7 @@ function setFilter(f){
 }
 function renderHist(){
   // counts
-  const counts={all:histData.length,draft:0,open:0,overdue:0,paid:0};
+  const counts={all:histData.length,draft:0,open:0,overdue:0,paid:0,cancelled:0};
   histData.forEach(it=>{ counts[it.status]=(counts[it.status]||0)+1; });
   Object.keys(counts).forEach(k=>{ const el=$('c-'+k); if(el) el.textContent=counts[k]; });
   $('histCount').textContent=histData.length;
