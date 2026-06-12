@@ -105,6 +105,20 @@
   .sign .ln{border-top:1px dotted #555;margin:0 10px 5px}
   .sign .two{display:grid;grid-template-columns:2fr 1fr;gap:14px}
   .empty-preview{color:var(--muted);text-align:center;padding:60px 20px;font-size:13px}
+  /* ===== Tax Invoice green theme (#88C326) ===== */
+  .paper.theme-green .inv-corner{border-top-color:#88C326}
+  .paper.theme-green .doc-title{min-width:220px}
+  .paper.theme-green .doc-title .t{color:#5f8f18;font-size:15px;line-height:1.2;white-space:nowrap}
+  .paper.theme-green .meta-box{border-color:#d3e8a8;background:#f6fbe9}
+  .paper.theme-green .meta-box .l b{color:#5f8f18}
+  .paper.theme-green .cust .hd{color:#5f8f18}
+  .paper.theme-green table.lines thead th{background:#eef7d9;color:#4d7a0f;border-color:#cfe6a0}
+  .paper.theme-green .totals tr.net .val{color:#5f8f18}
+  .paper.theme-green .note .hd{color:#6f9e1f}
+  /* tax invoice item table (more columns) */
+  table.titems{table-layout:fixed;width:100%}
+  table.titems input,table.titems textarea{width:100%;box-sizing:border-box;padding:7px 6px;font-size:13px}
+  table.titems th{font-size:10.5px}
 
   /* History */
   .filterbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 14px}
@@ -170,6 +184,7 @@
   </div>
   <div class="tabs">
     <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
+    <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')">🧾 Tax Invoice</button>
     <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
     <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
@@ -234,6 +249,73 @@
       <div class="paper-scroll" id="paperScroll">
         <div class="empty-preview" id="emptyPreview">กรอกข้อมูลแล้วกด <b>Preview</b> เพื่อดูตัวอย่างใบแจ้งหนี้</div>
         <div class="paper hidden" id="paper"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= TAX INVOICE TAB ================= -->
+<div class="wrap hidden" id="view-taxinvoice">
+  <div class="layout">
+    <!-- FORM -->
+    <div class="card">
+      <h2>Tax Invoice Details</h2>
+
+      <div class="section-title">Customer</div>
+      <div class="field">
+        <label>ชื่อลูกค้า / Customers (เลือกจาก Vendor)</label>
+        <div style="display:flex;gap:8px">
+          <select id="tcustSelect" onchange="onTaxVendorSelect()" style="flex:1"><option value="">— เลือกลูกค้า —</option></select>
+          <button class="btn ghost" type="button" onclick="openVendorModal('tcustSelect')" style="white-space:nowrap">+ Vendor ใหม่</button>
+        </div>
+        <input type="hidden" id="tcustName">
+      </div>
+      <div class="field"><label>ที่อยู่ / Address</label><textarea id="tcustAddr" placeholder="เลือก Vendor แล้วเติมอัตโนมัติ"></textarea></div>
+      <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input id="tcustTax" placeholder="0000000000000"></div>
+
+      <div class="section-title">Document</div>
+      <div class="row2">
+        <div class="field"><label>เลขที่ / No.</label><input id="tdocNo" placeholder="INV2026110001"></div>
+        <div class="field"><label>วันที่ / Date</label><input id="tdocDate" type="date"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>เครดิต (วัน) / Credit</label><input id="tcredit" type="number" min="0" value="0"></div>
+        <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
+      </div>
+      <div class="field"><label>อ้างอิง / Reference</label><input id="tref" placeholder="QT..."></div>
+
+      <div class="section-title">Items</div>
+      <table class="items titems" style="width:100%">
+        <thead><tr><th style="width:28px">#</th><th>รายละเอียด</th><th style="width:54px">จำนวน</th><th style="width:48px">หน่วย</th><th style="width:84px">ราคา/หน่วย</th><th style="width:26px"></th></tr></thead>
+        <tbody id="titemsBody"></tbody>
+      </table>
+      <button class="btn add" onclick="addTaxItem()">+ เพิ่มรายการ</button>
+
+      <div class="section-title">Note</div>
+      <div class="field"><textarea id="tdocNote" placeholder="เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX"></textarea></div>
+
+      <div class="totbox" id="ttotSummary"></div>
+
+      <div class="actions">
+        <button class="btn" style="background:#88C326;border-color:#88C326" onclick="renderTaxPreview(true)">👁 Preview</button>
+        <button class="btn" id="btnTaxPdf" style="background:#6f9e1f;border-color:#6f9e1f" onclick="generateTaxPDF()">⬇ Generate PDF</button>
+        <button class="btn ghost" onclick="resetTaxForm()">ล้างฟอร์ม</button>
+      </div>
+      <div class="hint">ยอดรวมต่อรายการ = จำนวน × ราคา/หน่วย · VAT 7% อัตโนมัติ</div>
+      <div class="status" id="taxFormStatus"></div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="card preview-pane">
+      <div class="toolbar">
+        <h2 style="margin:0">ตัวอย่าง / Preview</h2>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <label class="hint" style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="tcopyToggle" onchange="renderTaxPreview()"> แสดง "สำเนา (Copy)"</label>
+        </div>
+      </div>
+      <div class="paper-scroll" id="tpaperScroll">
+        <div class="empty-preview" id="tEmptyPreview">กรอกข้อมูลแล้วกด <b>Preview</b></div>
+        <div class="paper theme-green hidden" id="tpaper"></div>
       </div>
     </div>
   </div>
@@ -881,6 +963,183 @@ function cycleStatus(idx){
   renderHist();
 }
 
+/* ============== TAX INVOICE (ใบกำกับภาษี) ============== */
+let tItemSeq=0;
+function addTaxItem(detail='',qty=1,unit='',price=''){
+  tItemSeq++;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td style="text-align:center;color:#9aa0aa" class="trownum"></td>
+    <td><textarea class="ti-detail" rows="2" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
+    <td><input class="ti-qty" type="number" step="1" min="0" value="${qty}" style="text-align:right"></td>
+    <td><input class="ti-unit" value="${esc(unit)}" placeholder="หน่วย"></td>
+    <td><input class="ti-price amt" type="number" step="0.01" value="${price}" placeholder="0.00" style="text-align:right"></td>
+    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncTaxTotals()">×</button></td>`;
+  $('titemsBody').appendChild(tr);
+  tr.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',syncTaxTotals));
+  syncTaxTotals();
+}
+function getTaxItems(){
+  return [...document.querySelectorAll('#titemsBody tr')].map(tr=>{
+    const qty=Number(tr.querySelector('.ti-qty').value)||0;
+    const price=Number(tr.querySelector('.ti-price').value)||0;
+    return { detail:tr.querySelector('.ti-detail').value, qty, unit:tr.querySelector('.ti-unit').value, price, amount:Math.round(qty*price*100)/100 };
+  });
+}
+function calcTax(){
+  const items=getTaxItems();
+  const sub=items.reduce((a,i)=>a+i.amount,0);
+  const vat=Math.round(sub*7)/100;
+  const net=Math.round((sub+vat)*100)/100;
+  return {items,sub,vat,net};
+}
+function syncTaxTotals(){
+  document.querySelectorAll('#titemsBody tr').forEach((tr,i)=>tr.querySelector('.trownum').textContent=i+1);
+  const {sub,vat,net}=calcTax();
+  $('ttotSummary').innerHTML=`
+    <div class="line"><span>รวมเป็นเงิน</span><b>${fmt(sub)}</b></div>
+    <div class="line"><span>ภาษีมูลค่าเพิ่ม (VAT 7%)</span><b>${fmt(vat)}</b></div>
+    <div class="line net"><span>จำนวนเงินรวมทั้งสิ้น</span><span>${fmt(net)} บาท</span></div>`;
+  renderTaxPreview(false);
+}
+function addDays(dateStr,days){
+  if(!dateStr) return '';
+  const d=new Date(dateStr); if(isNaN(d)) return '';
+  d.setDate(d.getDate()+(Number(days)||0));
+  return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+(d.getFullYear()+543);
+}
+function buildTaxInvoiceHTML(isCopy){
+  const {items,sub,vat,net}=calcTax();
+  let rows='';
+  items.forEach((it,i)=>{
+    rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td>
+      <td style="text-align:right">${it.qty?fmt(it.qty).replace(/\.00$/,''):''}</td>
+      <td class="c">${esc(it.unit)}</td>
+      <td style="text-align:right">${fmt(it.price)}</td>
+      <td class="c-amt">${fmt(it.amount)}</td></tr>`;
+  });
+  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td></td><td></td><td></td><td class="c-amt">0.00</td></tr>`;
+  const credit=Number(val('tcredit'))||0;
+  const note=val('tdocNote'); const sp=val('tsalesperson'); const ref=val('tref');
+  const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
+  return `
+  <div class="inv-corner"><span>1</span></div>
+  <div class="inv-head">
+    <div class="logo"><img src="${logoData||DEFAULT_LOGO}"></div>
+    <div class="co">
+      <div class="th">${esc(val('sellerThai'))}</div>
+      <div class="en">${esc(val('sellerEn'))}</div>
+      <div>${nl2br(val('sellerAddr'))}</div>
+      <div>เลขประจำตัวผู้เสียภาษี ${esc(val('sellerTax'))}</div>
+      ${val('sellerPhone')?`<div>เบอร์โทร ${esc(val('sellerPhone'))}</div>`:''}
+    </div>
+    <div class="doc-title">
+      <div class="t">ใบกำกับภาษี/ใบเสร็จรับเงิน</div>
+      <div class="copy">${isCopy?'สำเนา (Copy)':'ต้นฉบับ (Original)'}</div>
+      <div class="meta-box">
+        <div class="l"><b>เลขที่</b><span>${esc(val('tdocNo'))}</span></div>
+        <div class="l"><b>วันที่</b><span>${fmtDate(val('tdocDate'))}</span></div>
+        ${credit>0?`<div class="l"><b>เครดิต</b><span>${credit} วัน</span></div>`:''}
+        <div class="l"><b>ครบกำหนด</b><span>${addDays(val('tdocDate'),credit)}</span></div>
+        ${sp?`<div class="l"><b>ผู้ขาย</b><span>${esc(sp)}</span></div>`:''}
+        ${ref?`<div class="l"><b>อ้างอิง</b><span>${esc(ref)}</span></div>`:''}
+      </div>
+    </div>
+  </div>
+
+  <div class="cust">
+    <div class="hd">ลูกค้า / Customer</div>
+    <div>${esc(val('tcustName'))}</div>
+    <div>${nl2br(val('tcustAddr'))}</div>
+    <div>เลขประจำตัวผู้เสียภาษี ${esc(val('tcustTax'))}</div>
+  </div>
+
+  <table class="lines">
+    <thead><tr>
+      <th class="c c-no">#</th><th class="l">รายละเอียด</th>
+      <th style="text-align:right;width:56px">จำนวน</th>
+      <th class="c" style="width:50px">หน่วย</th>
+      <th style="text-align:right;width:96px">ราคาต่อหน่วย</th>
+      <th class="c-amt">ยอดรวม</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="totals"><table>
+    <tr><td class="lab">รวมเป็นเงิน</td><td class="val">${fmt(sub)} บาท</td></tr>
+    <tr><td class="lab">ภาษีมูลค่าเพิ่ม 7%</td><td class="val">${fmt(vat)} บาท</td></tr>
+    <tr class="net"><td class="lab">จำนวนเงินรวมทั้งสิ้น</td><td class="val">${fmt(net)} บาท</td></tr>
+  </table></div>
+  <div class="baht">(ตัวอักษร) ${esc(bahtText(net))}</div>
+  ${note?`<div class="note"><span class="hd">หมายเหตุ</span><br>${nl2br(note)}</div>`:''}
+
+  <div class="sign">
+    <div class="slot"><div class="nm">&nbsp;</div><div class="two"><div><div class="ln"></div>ผู้รับ</div><div><div class="ln"></div>วันที่</div></div></div>
+    <div class="slot"><div class="nm">ในนาม ${esc(sellerName)}</div><div class="two"><div><div class="ln"></div>ผู้มีอำนาจลงนาม</div><div><div class="ln"></div>วันที่</div></div></div>
+  </div>`;
+}
+function renderTaxPreview(scroll){
+  $('tEmptyPreview').classList.add('hidden');
+  $('tpaper').classList.remove('hidden');
+  $('tpaper').innerHTML=buildTaxInvoiceHTML($('tcopyToggle').checked);
+  if(scroll) $('tpaperScroll').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function validateTax(){
+  const errs=[];
+  if(!val('tcustName').trim()) errs.push('กรุณาเลือกลูกค้า');
+  if(!val('tdocNo').trim()) errs.push('กรุณากรอกเลขที่');
+  if(!val('tdocDate')) errs.push('กรุณาเลือกวันที่');
+  const {sub}=calcTax(); if(sub<=0) errs.push('กรุณาเพิ่มรายการพร้อมจำนวน/ราคา');
+  return errs;
+}
+function setTaxStatus(msg,type){ const el=$('taxFormStatus'); el.className='status show '+type; el.innerHTML=msg; }
+function onTaxVendorSelect(){
+  const v=vendorData.find(x=>x.id===$('tcustSelect').value);
+  if(v){ $('tcustName').value=v.name||''; $('tcustAddr').value=v.address||''; $('tcustTax').value=v.taxId||''; }
+  else { $('tcustName').value=''; }
+  renderTaxPreview(false);
+}
+function resetTaxForm(){
+  ['tcustName','tcustAddr','tcustTax','tdocNo','tsalesperson','tref','tdocNote'].forEach(id=>$(id).value='');
+  const cs=$('tcustSelect'); if(cs) cs.value=''; $('tcredit').value='0';
+  $('titemsBody').innerHTML=''; addTaxItem();
+  $('tEmptyPreview').classList.remove('hidden'); $('tpaper').classList.add('hidden');
+  setTaxStatus('',''); $('taxFormStatus').className='status';
+}
+async function generateTaxPDF(){
+  const errs=validateTax();
+  if(errs.length){ setTaxStatus('⚠ '+errs.join('<br>⚠ '),'err'); return; }
+  renderTaxPreview();
+  const btn=$('btnTaxPdf'); btn.disabled=true; setTaxStatus('⏳ กำลังสร้าง PDF...','info');
+  try{
+    const {net}=calcTax();
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF('p','mm','a4'); const pw=210, ph=297;
+    let holder=document.getElementById('pdfHolder');
+    if(!holder){ holder=document.createElement('div'); holder.id='pdfHolder'; holder.style.position='fixed'; holder.style.left='-10000px'; holder.style.top='0'; document.body.appendChild(holder); }
+    holder.className='paper theme-green'; holder.style.width='760px'; holder.style.minHeight='auto'; holder.style.boxShadow='none'; holder.style.background='#fff';
+    let first=true;
+    for(const isCopy of [false, true]){
+      holder.innerHTML=buildTaxInvoiceHTML(isCopy);
+      await new Promise(r=>setTimeout(r,40));
+      const canvas=await html2canvas(holder,{scale:2,useCORS:true,backgroundColor:'#fff'});
+      const img=canvas.toDataURL('image/jpeg',0.95);
+      const ih=canvas.height*pw/canvas.width;
+      const pages=Math.max(1, Math.ceil((ih-4)/ph));
+      for(let p=0;p<pages;p++){ if(!first) pdf.addPage(); first=false; pdf.addImage(img,'JPEG',0,-p*ph,pw,ih); }
+    }
+    holder.innerHTML='';
+    const fname=((val('tdocNo')||'tax-invoice').replace(/[^\w\-]/g,'_'))+'.pdf';
+    pdf.save(fname);
+    const firstDetail=(getTaxItems()[0]?.detail||'').split('\n')[0].slice(0,60);
+    const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'tax' };
+    const b64=pdf.output('datauristring').split(',')[1];
+    await saveHistory(meta,b64);
+    setTaxStatus('✅ สร้างใบกำกับภาษีสำเร็จ และบันทึกประวัติแล้ว','ok');
+  }catch(e){ console.error(e); setTaxStatus('❌ เกิดข้อผิดพลาด: '+e.message,'err'); }
+  finally{ btn.disabled=false; }
+}
+
 /* ============== VENDOR PROFILE ============== */
 let vendorData=[]; let vendorLogoData=''; let modalLogoData='';
 async function fetchVendors(){
@@ -959,11 +1218,9 @@ async function saveVendorForm(){
 
 /* ---- dropdown บนหน้าใบแจ้งหนี้ ---- */
 function populateVendorDropdown(){
-  const sel=$('custSelect'); if(!sel) return;
-  const cur=sel.value;
   const list=[...vendorData].sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
-  sel.innerHTML='<option value="">— เลือกลูกค้า —</option>'+list.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
-  if(cur && list.some(v=>v.id===cur)) sel.value=cur;
+  const opts='<option value="">— เลือกลูกค้า —</option>'+list.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  ['custSelect','tcustSelect'].forEach(id=>{ const sel=$(id); if(!sel) return; const cur=sel.value; sel.innerHTML=opts; if(cur && list.some(v=>v.id===cur)) sel.value=cur; });
 }
 function onVendorSelect(){
   const v=vendorData.find(x=>x.id===$('custSelect').value);
@@ -973,7 +1230,8 @@ function onVendorSelect(){
 }
 
 /* ---- modal popup สร้าง vendor จากหน้าใบแจ้งหนี้ ---- */
-function openVendorModal(){ $('vendorModal').classList.remove('hidden'); ['mvName','mvAddr','mvTax'].forEach(id=>$(id).value=''); modalLogoData=''; const lf=$('mvLogoFile'); if(lf) lf.value=''; $('mvStatus').className='status'; }
+let vendorModalTarget='custSelect';
+function openVendorModal(target){ vendorModalTarget=target||'custSelect'; $('vendorModal').classList.remove('hidden'); ['mvName','mvAddr','mvTax'].forEach(id=>$(id).value=''); modalLogoData=''; const lf=$('mvLogoFile'); if(lf) lf.value=''; $('mvStatus').className='status'; }
 function closeVendorModal(){ $('vendorModal').classList.add('hidden'); }
 function onModalLogoUpload(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ modalLogoData=r.result; }; r.readAsDataURL(f); }
 async function saveVendorModal(){
@@ -983,21 +1241,22 @@ async function saveVendorModal(){
   const s=$('mvStatus'); s.className='status show info'; s.textContent='⏳ กำลังบันทึก...';
   const rec=await saveVendor(v);
   await fetchVendors(); populateVendorDropdown();
-  $('custSelect').value=rec.id; onVendorSelect();
+  $(vendorModalTarget).value=rec.id;
+  if(vendorModalTarget==='tcustSelect') onTaxVendorSelect(); else onVendorSelect();
   closeVendorModal();
-  setStatus('✅ เพิ่ม Vendor "'+name+'" และเลือกใช้แล้ว','ok');
 }
 window.onFbReady=async function(){ try{ await fetchVendors(); populateVendorDropdown(); }catch(e){} };
 
 /* ---------- tabs ---------- */
 function showTab(t){
-  ['create','dashboard','vendor','history','settings'].forEach(x=>{
+  ['create','taxinvoice','dashboard','vendor','history','settings'].forEach(x=>{
     $('tab-'+x).classList.toggle('active',t===x);
     $('view-'+x).classList.toggle('hidden',t!==x);
   });
   if(t==='history') loadHistory();
   if(t==='dashboard') loadDashboard();
   if(t==='vendor') loadVendors();
+  if(t==='taxinvoice') renderTaxPreview(false);
 }
 
 /* ---------- settings (seller/company) ---------- */
@@ -1047,11 +1306,21 @@ function liveRender(){
   addItem('ค่าตอบแทนหลัก (Base GP) และ ค่าขนส่งสินค้า (Logistic Cost)\nประจำเดือน ........... 25..','');
   loadLocalSettings(); // โหลด seller/company จาก localStorage (ก่อน Firebase พร้อม)
   applyLogoThumb();
-  // live update preview on any input/change ทั้งหน้า create และ settings
-  document.body.addEventListener('input',e=>{ if(e.target.closest('#view-create,#view-settings')) liveRender(); });
-  document.body.addEventListener('change',e=>{ if(e.target.closest('#view-create,#view-settings')) liveRender(); });
+  // live update preview — แยกตาม view
+  let tTimer=null;
+  const liveTax=()=>{ clearTimeout(tTimer); tTimer=setTimeout(()=>renderTaxPreview(false),120); };
+  const onEdit=e=>{
+    if(e.target.closest('#view-taxinvoice')) liveTax();
+    else if(e.target.closest('#view-create,#view-settings')) liveRender();
+  };
+  document.body.addEventListener('input',onEdit);
+  document.body.addEventListener('change',onEdit);
   renderPreview(false); // show preview immediately
   fetchVendors().then(()=>populateVendorDropdown()); // เติม dropdown ลูกค้า
+  // ตั้งค่าฟอร์มใบกำกับภาษีเริ่มต้น
+  $('tdocDate').value=new Date().toISOString().slice(0,10);
+  $('tdocNo').value='INV'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+'0001';
+  addTaxItem('',1,'',''); renderTaxPreview(false);
 })();
 </script>
 
