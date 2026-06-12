@@ -63,7 +63,7 @@
   /* ===== Preview / Invoice paper (FlowAccount style) ===== */
   .preview-pane{position:relative}
   .paper-scroll{overflow:auto;background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;justify-content:center}
-  .paper{background:#fff;width:760px;min-height:1075px;padding:46px 48px;box-shadow:0 2px 12px rgba(0,0,0,.12);color:#222;font-size:13px;position:relative;overflow:hidden}
+  .paper{background:#fff;width:760px;min-height:1075px;padding:46px 48px;box-shadow:0 2px 12px rgba(0,0,0,.12);color:#222;font-size:13px;position:relative;overflow:hidden;display:flex;flex-direction:column}
   /* corner page-number triangle */
   .inv-corner{position:absolute;top:0;right:0;width:0;height:0;border-top:54px solid #6d28d9;border-left:54px solid transparent}
   .inv-corner span{position:absolute;top:-48px;right:6px;color:#fff;font-weight:700;font-size:15px}
@@ -100,7 +100,7 @@
   .baht{margin-top:6px;font-weight:700;font-size:12.5px;color:#111}
   .note{margin-top:24px;font-size:11.5px;color:#444;line-height:1.5}
   .note .hd{color:#9333ea;font-weight:700}
-  .sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:70px;text-align:center;font-size:11.5px;color:#333}
+  .sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:auto;padding-top:50px;text-align:center;font-size:11.5px;color:#333}
   .sign .nm{margin-bottom:40px}
   .sign .ln{border-top:1px dotted #555;margin:0 10px 5px}
   .sign .two{display:grid;grid-template-columns:2fr 1fr;gap:14px}
@@ -265,30 +265,22 @@
         <label>ชื่อลูกค้า / Customers (เลือกจาก Vendor)</label>
         <select id="tcustSelect" onchange="onTaxVendorSelect()" style="width:100%"><option value="">— เลือกลูกค้า —</option></select>
         <input type="hidden" id="tcustName">
+        <input type="hidden" id="tcustAddr">
+        <input type="hidden" id="tcustTax">
       </div>
-      <div class="field"><label>ที่อยู่ / Address</label><textarea id="tcustAddr" placeholder="เลือก Vendor แล้วเติมอัตโนมัติ"></textarea></div>
-      <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input id="tcustTax" placeholder="0000000000000"></div>
 
       <div class="section-title">Document</div>
       <div class="row2">
         <div class="field"><label>เลขที่ / No.</label><input id="tdocNo" placeholder="INV2026110001"></div>
         <div class="field"><label>วันที่ / Date</label><input id="tdocDate" type="date"></div>
       </div>
-      <div class="row2">
-        <div class="field"><label>เครดิต (วัน) / Credit</label><input id="tcredit" type="number" min="0" value="0"></div>
-        <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
-      </div>
+      <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
       <div class="field">
         <label>อ้างอิง / Reference — เลือก Invoice ค้างชำระของลูกค้า (prefill รายการอัตโนมัติ)</label>
         <select id="trefSelect" onchange="onTaxRefSelect()" style="width:100%"><option value="">— เลือกลูกค้าก่อน —</option></select>
       </div>
 
-      <div class="section-title">Items</div>
-      <table class="items titems" style="width:100%">
-        <thead><tr><th style="width:28px">#</th><th>รายละเอียด</th><th style="width:54px">จำนวน</th><th style="width:48px">หน่วย</th><th style="width:84px">ราคา/หน่วย</th><th style="width:26px"></th></tr></thead>
-        <tbody id="titemsBody"></tbody>
-      </table>
-      <button class="btn add" onclick="addTaxItem()">+ เพิ่มรายการ</button>
+      <table class="hidden"><tbody id="titemsBody"></tbody></table>
 
       <div class="section-title">Note</div>
       <div class="field"><textarea id="tdocNote" placeholder="เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX"></textarea></div>
@@ -719,7 +711,7 @@ async function generatePDF(){
       document.body.appendChild(holder);
     }
     holder.className='paper';
-    holder.style.width='760px'; holder.style.minHeight='auto';
+    holder.style.width='760px'; holder.style.minHeight='1075px';
     holder.style.boxShadow='none'; holder.style.background='#fff';
 
     let first=true;
@@ -748,6 +740,7 @@ async function generatePDF(){
       net:net, createdAt:new Date().toISOString(), filename:fname,
       subject:firstDetail, status:'open',
       custAddr:$('custAddr').value, custTax:$('custTax').value,
+      vendorId:($('custSelect')?$('custSelect').value:'')||'',
       items:getItems().map(i=>({detail:i.detail, amount:i.amount}))
     };
     const b64=pdf.output('datauristring').split(',')[1];
@@ -1120,14 +1113,19 @@ async function onTaxVendorSelect(){
   if(v){ $('tcustName').value=v.name||''; $('tcustAddr').value=v.address||''; $('tcustTax').value=v.taxId||''; }
   else { $('tcustName').value=''; $('tcustAddr').value=''; $('tcustTax').value=''; }
   taxSource=null;
-  await populateTaxRefDropdown(v?v.name:'');
+  await populateTaxRefDropdown(v);
   renderTaxPreview(false);
 }
-async function populateTaxRefDropdown(vendorName){
+async function populateTaxRefDropdown(v){
   const sel=$('trefSelect'); if(!sel) return;
-  if(!vendorName){ sel.innerHTML='<option value="">— เลือกลูกค้าก่อน —</option>'; return; }
+  if(!v){ sel.innerHTML='<option value="">— เลือกลูกค้าก่อน —</option>'; return; }
   await fetchInvoices();
-  const open=histData.filter(i=>(i.customer||'')===vendorName && i.status==='open' && i.docType!=='tax');
+  // จับคู่ด้วย vendorId หรือ เลขภาษี หรือ ชื่อ (ทนต่อการเปลี่ยนชื่อ vendor)
+  const open=histData.filter(i=> i.status==='open' && i.docType!=='tax' && (
+    (i.vendorId && i.vendorId===v.id) ||
+    (v.taxId && i.custTax && i.custTax===v.taxId) ||
+    (i.customer||'')===v.name
+  ));
   if(open.length===0){ sel.innerHTML='<option value="">— ไม่มี Invoice ค้างชำระ —</option>'; return; }
   sel.innerHTML='<option value="">— เลือก Invoice —</option>'+open.map(i=>`<option value="${i.id||i.no}">${esc(i.no)} · ${fmt(i.net)} บาท</option>`).join('');
 }
@@ -1146,7 +1144,7 @@ function onTaxRefSelect(){
 }
 function resetTaxForm(){
   ['tcustName','tcustAddr','tcustTax','tdocNo','tsalesperson','tdocNote'].forEach(id=>$(id).value='');
-  const cs=$('tcustSelect'); if(cs) cs.value=''; $('tcredit').value='0';
+  const cs=$('tcustSelect'); if(cs) cs.value='';
   taxSource=null; const rs=$('trefSelect'); if(rs) rs.innerHTML='<option value="">— เลือกลูกค้าก่อน —</option>';
   $('titemsBody').innerHTML=''; addTaxItem();
   $('tEmptyPreview').classList.remove('hidden'); $('tpaper').classList.add('hidden');
@@ -1163,7 +1161,7 @@ async function generateTaxPDF(){
     const pdf=new jsPDF('p','mm','a4'); const pw=210, ph=297;
     let holder=document.getElementById('pdfHolder');
     if(!holder){ holder=document.createElement('div'); holder.id='pdfHolder'; holder.style.position='fixed'; holder.style.left='-10000px'; holder.style.top='0'; document.body.appendChild(holder); }
-    holder.className='paper theme-green'; holder.style.width='760px'; holder.style.minHeight='auto'; holder.style.boxShadow='none'; holder.style.background='#fff';
+    holder.className='paper theme-green'; holder.style.width='760px'; holder.style.minHeight='1075px'; holder.style.boxShadow='none'; holder.style.background='#fff';
     let first=true;
     for(const isCopy of [false, true]){
       holder.innerHTML=buildTaxInvoiceHTML(isCopy);
