@@ -815,31 +815,29 @@ function liveRender(){
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, getDocs, setDoc, doc, updateDoc, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref, uploadString, getDownloadURL }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",          // <-- ใส่ค่าจาก Firebase Console แล้วระบบจะใช้ Cloud อัตโนมัติ
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyDV57D-HCuN6u_H8vEONn6Ltxzs121QwB0",
+  authDomain: "tf-invoice-8d309.firebaseapp.com",
+  projectId: "tf-invoice-8d309",
+  storageBucket: "tf-invoice-8d309.firebasestorage.app",
+  messagingSenderId: "144502323182",
+  appId: "1:144502323182:web:44c92f81843d890daa40ff",
+  measurementId: "G-9Y9HZNPC5H"
 };
 
 if (firebaseConfig.projectId) {
   try {
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const storage = getStorage(app);
     const COL = "invoices";
+    const MAX_PDF = 950000; // ~0.9 MB (Firestore doc limit ~1 MiB)
 
+    // PDF เก็บเป็น base64 ในเอกสาร Firestore (ฟรีบน Spark plan ไม่ต้องใช้ Storage/Blaze)
     window.fbSave = async (meta, b64) => {
       const id = (meta.no || "INV").replace(/[^\w-]/g, "_") + "_" + Date.now();
-      const sref = ref(storage, COL + "/" + id + ".pdf");
-      await uploadString(sref, b64, "base64", { contentType: "application/pdf" });
-      const downloadUrl = await getDownloadURL(sref);
-      const rec = { ...meta, id, downloadUrl, storagePath: COL + "/" + id + ".pdf" };
+      const rec = { ...meta, id };
+      if (b64 && b64.length <= MAX_PDF) rec.pdfBase64 = b64; else rec.pdfTooLarge = true;
       await setDoc(doc(db, COL, id), rec);
       return rec;
     };
@@ -847,14 +845,19 @@ if (firebaseConfig.projectId) {
       let snap;
       try { snap = await getDocs(query(collection(db, COL), orderBy("createdAt", "desc"))); }
       catch (e) { snap = await getDocs(collection(db, COL)); }
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const items = snap.docs.map(d => {
+        const x = { id: d.id, ...d.data() };
+        if (x.pdfBase64) x._localPdf = "data:application/pdf;base64," + x.pdfBase64;
+        delete x.pdfBase64;
+        return x;
+      });
       items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       return items;
     };
     window.fbUpdateStatus = async (id, status) => updateDoc(doc(db, COL, id), { status });
 
     window.FB_READY = true;
-    console.log("Firebase backend ready");
+    console.log("Firebase (Firestore) backend ready");
   } catch (e) {
     console.warn("Firebase init failed:", e);
     window.FB_READY = false;
