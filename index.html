@@ -562,6 +562,10 @@ async function generatePDF(){
 
 /* ---------- history storage ---------- */
 async function saveHistory(meta,b64){
+  if(window.FB_READY){
+    try{ await window.fbSave(meta,b64); return; }
+    catch(e){ console.warn('Firebase save failed, fallback to local',e); }
+  }
   if(CONFIG.SCRIPT_URL){
     try{
       await fetch(CONFIG.SCRIPT_URL,{
@@ -588,18 +592,20 @@ function avaColor(s){ let h=0; for(const c of (s||'?')) h=(h*31+c.charCodeAt(0))
 
 let histSourceText='';
 async function fetchInvoices(){
-  let list=[]; let source='';
-  if(CONFIG.SCRIPT_URL){
+  let list=[]; let source=''; let ok=false;
+  if(window.FB_READY){
+    try{ list=await window.fbList(); source='☁️ ข้อมูลจาก Firebase (Cloud)'; ok=true; }
+    catch(e){ source='⚠ เชื่อมต่อ Firebase ไม่ได้ — แสดงข้อมูลในเครื่องแทน'; }
+  } else if(CONFIG.SCRIPT_URL){
     try{
       const r=await fetch(CONFIG.SCRIPT_URL+'?action=list&folderId='+encodeURIComponent(CONFIG.DRIVE_FOLDER_ID));
       const data=await r.json();
-      list=data.items||[];
-      source='📁 ข้อมูลจาก Google Drive';
+      list=data.items||[]; source='📁 ข้อมูลจาก Google Drive'; ok=true;
     }catch(e){ source='⚠ เชื่อมต่อ Drive ไม่ได้ — แสดงข้อมูลในเครื่องแทน'; }
   }
-  if(!CONFIG.SCRIPT_URL || (list.length===0 && source.startsWith('⚠'))){
+  if(!ok){
     list=JSON.parse(localStorage.getItem('invoices')||'[]');
-    if(!CONFIG.SCRIPT_URL) source='💾 ยังไม่ได้ตั้งค่า Drive — เก็บประวัติในเบราว์เซอร์';
+    if(!window.FB_READY && !CONFIG.SCRIPT_URL) source='💾 ยังไม่ได้ตั้งค่า Cloud — เก็บประวัติในเบราว์เซอร์';
   }
   histData=list.map(it=>({...it, status: it.status||'open'}));
   histSourceText=source+' · '+histData.length+' รายการ';
@@ -747,7 +753,9 @@ function cycleStatus(idx){
   const next=STATUS_CYCLE[(STATUS_CYCLE.indexOf(it.status)+1)%STATUS_CYCLE.length];
   it.status=next;
   // persist
-  if(CONFIG.SCRIPT_URL && it.fileId){
+  if(window.FB_READY && it.id){
+    window.fbUpdateStatus(it.id, next).catch(()=>{});
+  }else if(CONFIG.SCRIPT_URL && it.fileId){
     fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'updateStatus',folderId:CONFIG.DRIVE_FOLDER_ID,fileId:it.fileId,status:next})}).catch(()=>{});
   }else{
     const local=JSON.parse(localStorage.getItem('invoices')||'[]');
@@ -796,6 +804,64 @@ function liveRender(){
   $('view-create').addEventListener('change',liveRender);
   renderPreview(false); // show preview immediately
 })();
+</script>
+
+<!-- ============================================================
+   Firebase backend (Firestore = metadata, Storage = PDF)
+   วาง config จาก Firebase Console ▸ Project settings ▸ Your apps
+   ถ้าเว้น projectId ว่างไว้ ระบบจะใช้ localStorage แทน
+   ============================================================ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, setDoc, doc, updateDoc, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadString, getDownloadURL }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",          // <-- ใส่ค่าจาก Firebase Console แล้วระบบจะใช้ Cloud อัตโนมัติ
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+if (firebaseConfig.projectId) {
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    const COL = "invoices";
+
+    window.fbSave = async (meta, b64) => {
+      const id = (meta.no || "INV").replace(/[^\w-]/g, "_") + "_" + Date.now();
+      const sref = ref(storage, COL + "/" + id + ".pdf");
+      await uploadString(sref, b64, "base64", { contentType: "application/pdf" });
+      const downloadUrl = await getDownloadURL(sref);
+      const rec = { ...meta, id, downloadUrl, storagePath: COL + "/" + id + ".pdf" };
+      await setDoc(doc(db, COL, id), rec);
+      return rec;
+    };
+    window.fbList = async () => {
+      let snap;
+      try { snap = await getDocs(query(collection(db, COL), orderBy("createdAt", "desc"))); }
+      catch (e) { snap = await getDocs(collection(db, COL)); }
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      return items;
+    };
+    window.fbUpdateStatus = async (id, status) => updateDoc(doc(db, COL, id), { status });
+
+    window.FB_READY = true;
+    console.log("Firebase backend ready");
+  } catch (e) {
+    console.warn("Firebase init failed:", e);
+    window.FB_READY = false;
+  }
+} else {
+  window.FB_READY = false;
+}
 </script>
 </body>
 </html>
