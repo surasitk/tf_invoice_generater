@@ -139,11 +139,16 @@
   .client{display:flex;align-items:center;gap:9px}
   .avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex:none}
   .spill{border:none;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:20px}
-  .s-open{background:#ede9fe;color:#6d28d9}
-  .s-paid{background:#dcfce7;color:#15803d}
-  .s-overdue{background:#ffe4e6;color:#be123c}
-  .s-draft{background:#dbeafe;color:#1d4ed8}
-  .s-cancelled{background:#f1f1f4;color:#6b7280;text-decoration:line-through}
+  /* status as editable dropdown (CTA) */
+  select.spill{appearance:none;-webkit-appearance:none;padding:5px 26px 5px 12px;border:1px solid rgba(0,0,0,.08);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5 L5 6.5 L8 3.5' stroke='%23444' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center;background-size:9px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  select.spill:hover{filter:brightness(.97)}
+  .s-open{background-color:#ede9fe;color:#6d28d9}
+  .s-paid{background-color:#dcfce7;color:#15803d}
+  .s-overdue{background-color:#ffe4e6;color:#be123c}
+  .s-draft{background-color:#dbeafe;color:#1d4ed8}
+  .s-cancelled{background-color:#f1f1f4;color:#6b7280}
   .link{color:var(--brand);text-decoration:none;font-weight:600;cursor:pointer}
   .subj{color:#4b5563}
   /* Dashboard */
@@ -186,8 +191,8 @@
     <button class="tab active" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
     <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')">🧾 Tax Invoice</button>
     <button class="tab" id="tab-dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
-    <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
+    <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
     <button class="tab" id="tab-settings" onclick="showTab('settings')">⚙️ Settings</button>
   </div>
 </header>
@@ -429,8 +434,8 @@
   <div class="card">
     <div class="toolbar">
       <div>
-        <h2 style="margin:0">ใบแจ้งหนี้ <span class="badge" id="histCount" style="vertical-align:middle"></span></h2>
-        <div class="hint">รายการใบแจ้งหนี้ที่สร้างไว้ · กดสถานะเพื่อเปลี่ยน · กดดาวน์โหลดเพื่อเปิด PDF</div>
+        <h2 style="margin:0">History page <span class="badge" id="histCount" style="vertical-align:middle"></span></h2>
+        <div class="hint">รายการเอกสารที่สร้างไว้ · กดสถานะเพื่อเปลี่ยน · กดดาวน์โหลดเพื่อเปิด PDF</div>
       </div>
       <button class="btn ghost" style="margin-left:auto" onclick="loadHistory()">🔄 รีเฟรช</button>
       <button class="btn" onclick="showTab('create')">+ สร้างใหม่</button>
@@ -457,6 +462,7 @@
         <th style="width:130px;text-align:right">ยอดสุทธิ</th>
         <th style="width:120px">สถานะ</th>
         <th>รายละเอียด</th>
+        <th style="width:110px">ประเภท / Type</th>
         <th style="width:90px;text-align:right"></th>
       </tr></thead>
       <tbody id="histBody"></tbody>
@@ -947,18 +953,37 @@ function renderHist(){
         ? `<br><a class="link" href="${turl}" target="_blank" style="color:#5f8f18">🧾 ใบกำกับภาษี ${esc(it.taxInvoiceNo||'')}</a>`
         : `<br><span class="badge" style="background:#eef7d9;color:#5f8f18">🧾 ${esc(it.taxInvoiceNo||'ออกแล้ว')}</span>`;
     }
-    const docBadge = it.docType==='tax' ? '🧾' : '📄';
+    const isTax = it.docType==='tax';
+    const docBadge = isTax ? '🧾' : '📄';
+    const typeBadge = isTax
+      ? '<span class="badge" style="background:#eef7d9;color:#5f8f18">🧾 Tax Invoice</span>'
+      : '<span class="badge">📄 Invoice</span>';
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><div class="numcell"><span class="ic">${docBadge}</span>${esc(it.no||'-')}</div></td>
       <td><div class="client"><span class="avatar" style="background:${avaColor(it.customer)}">${esc(initial)}</span>${esc(it.customer||'-')}</div></td>
       <td>${esc(fmtDate(it.date))}</td>
       <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
-      <td><button class="spill ${sm.cls}" title="คลิกเพื่อเปลี่ยนสถานะ" onclick="cycleStatus(${idx})">${sm.label}</button></td>
+      <td>${statusSelectHTML(idx, it.status)}</td>
       <td class="subj">${esc(it.subject||'-')}</td>
+      <td>${typeBadge}</td>
       <td style="text-align:right">${dl}${taxLink}</td>`;
     body.appendChild(tr);
   });
+}
+const STATUS_OPTS=['open','paid','overdue','draft','cancelled'];
+function statusSelectHTML(idx, cur){
+  const sm=STATUS_META[cur]||STATUS_META.open;
+  const opts=STATUS_OPTS.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${STATUS_META[s].label}</option>`).join('');
+  return `<select class="spill ${sm.cls}" title="เปลี่ยนสถานะ — เลือกได้" onchange="setStatusDirect(${idx}, this.value)">${opts}</select>`;
+}
+function setStatusDirect(idx, status){
+  const it=histData[idx]; if(!it) return;
+  it.status=status;
+  if(window.FB_READY && it.id){ window.fbUpdateStatus(it.id, status).catch(()=>{}); }
+  else if(CONFIG.SCRIPT_URL && it.fileId){ fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'updateStatus',folderId:CONFIG.DRIVE_FOLDER_ID,fileId:it.fileId,status})}).catch(()=>{}); }
+  else { const local=JSON.parse(localStorage.getItem('invoices')||'[]'); const m=local.find(x=>x.no===it.no && x.createdAt===it.createdAt); if(m){ m.status=status; localStorage.setItem('invoices',JSON.stringify(local)); } }
+  renderHist();
 }
 function cycleStatus(idx){
   const it=histData[idx];
