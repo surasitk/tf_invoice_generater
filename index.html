@@ -1112,14 +1112,17 @@ function dlLink(it){
   if(it._localPdf) return `<a class="link" href="${it._localPdf}" download="${it.filename||'invoice.pdf'}">⬇ ดาวน์โหลด</a>`;
   return '—';
 }
+function isTestClient(name){ return /test|ทดสอบ/i.test(name||''); } // บริษัททดสอบ ไม่นับในแดชบอร์ด
 function groupByClient(){
   const map={};
   histData.forEach(it=>{
     if(it.docType==='qt') return; // ใบเสนอราคาไม่นับในแดชบอร์ดลูกค้า
+    if(it.status==='cancelled') return; // ไม่นับใบที่ยกเลิกในแดชบอร์ด
     const key=(it.customer||'ไม่ระบุลูกค้า').trim()||'ไม่ระบุลูกค้า';
+    if(isTestClient(key)) return; // ไม่นับบริษัททดสอบ
     if(!map[key]) map[key]={name:key, items:[], total:0, byStatus:{}};
     map[key].items.push(it);
-    if(it.status!=='cancelled') map[key].total+=Number(it.net)||0; // ไม่รวมใบที่ยกเลิก
+    map[key].total+=Number(it.net)||0;
     map[key].byStatus[it.status]=(map[key].byStatus[it.status]||0)+1;
   });
   return Object.values(map).sort((a,b)=>b.total-a.total);
@@ -1143,10 +1146,11 @@ function renderDashClients(){
   $('dashDetail').classList.add('hidden');
   $('dashClients').classList.remove('hidden');
   $('dashKpis').classList.remove('hidden');
-  const groups=groupByClient();
-  const totalAmt=histData.filter(i=>i.status!=='cancelled'&&i.docType!=='qt').reduce((a,i)=>a+(Number(i.net)||0),0); // ไม่รวมยกเลิก/ใบเสนอราคา
-  const outstanding=histData.filter(i=>(i.status==='open'||i.status==='overdue')&&i.docType!=='qt').reduce((a,i)=>a+(Number(i.net)||0),0);
-  const invCount=histData.filter(i=>i.docType!=='qt').length;
+  const groups=groupByClient(); // ไม่รวมยกเลิก/ใบเสนอราคา/บริษัททดสอบ
+  const allItems=groups.flatMap(g=>g.items);
+  const totalAmt=allItems.reduce((a,i)=>a+(Number(i.net)||0),0);
+  const outstanding=allItems.filter(i=>i.status==='open'||i.status==='overdue').reduce((a,i)=>a+(Number(i.net)||0),0);
+  const invCount=allItems.length;
   $('dashKpis').innerHTML=`
     <div class="kpi"><div class="k">ลูกค้าทั้งหมด</div><div class="v">${groups.length}</div></div>
     <div class="kpi"><div class="k">ใบแจ้งหนี้ทั้งหมด</div><div class="v">${invCount}</div></div>
