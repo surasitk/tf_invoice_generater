@@ -1053,25 +1053,44 @@ async function generatePDF(){
   }finally{ btn.disabled=false; }
 }
 
+/* ---------- Slack notification ---------- */
+const SLACK_WEBHOOK="https://hooks.slack.com/services/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";
+const SLACK_DOC_LABEL={inv:'🧾 ใบแจ้งหนี้', tax:'🧾 ใบกำกับภาษี/ใบเสร็จรับเงิน', qt:'📝 ใบเสนอราคา'};
+function notifySlack(meta){
+  if(!SLACK_WEBHOOK) return;
+  try{
+    const type=meta.docType==='tax'?'tax':(meta.docType==='qt'?'qt':'inv');
+    const label=SLACK_DOC_LABEL[type]||'เอกสาร';
+    const by=meta.createdBy||'-';
+    const when=new Date(meta.createdAt||Date.now()).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
+    const text=`*${label}*  |  ${meta.customer||'-'}  |  ${meta.no||'-'}  |  *${fmt(meta.net||0)}* บาท\nby ${by} · ${when}`;
+    fetch(SLACK_WEBHOOK,{method:'POST',mode:'no-cors',body:JSON.stringify({text})});
+  }catch(e){ console.warn('slack notify fail',e); }
+}
+
 /* ---------- history storage ---------- */
 async function saveHistory(meta,b64){
+  let rec=null;
   if(window.FB_READY){
-    try{ return await window.fbSave(meta,b64); }
+    try{ rec=await window.fbSave(meta,b64); }
     catch(e){ console.warn('Firebase save failed, fallback to local',e); }
   }
-  if(CONFIG.SCRIPT_URL){
+  if(!rec && CONFIG.SCRIPT_URL){
     try{
       await fetch(CONFIG.SCRIPT_URL,{
         method:'POST',
         body:JSON.stringify({action:'save',folderId:CONFIG.DRIVE_FOLDER_ID,meta,pdfBase64:b64})
       });
-      return {...meta, id:meta.no};
+      rec={...meta, id:meta.no};
     }catch(e){ console.warn('Drive save failed, fallback to local',e); }
   }
-  const rec={...meta, id:meta.id||meta.no, _localPdf:'data:application/pdf;base64,'+b64};
-  const list=JSON.parse(localStorage.getItem('invoices')||'[]');
-  list.unshift(rec);
-  localStorage.setItem('invoices',JSON.stringify(list.slice(0,100)));
+  if(!rec){
+    rec={...meta, id:meta.id||meta.no, _localPdf:'data:application/pdf;base64,'+b64};
+    const list=JSON.parse(localStorage.getItem('invoices')||'[]');
+    list.unshift(rec);
+    localStorage.setItem('invoices',JSON.stringify(list.slice(0,100)));
+  }
+  notifySlack(meta); // แจ้งเตือน Slack หลังบันทึกสำเร็จ
   return rec;
 }
 async function linkSourceInvoice(srcId, taxRec){
