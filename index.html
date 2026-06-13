@@ -291,12 +291,31 @@
   @keyframes authShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 
   @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+  /* Splash / boot screen — กันหน้า login แว๊บตอนรีเฟรช */
+  .splash{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    background:linear-gradient(135deg,#4f6bff 0%,#3b54e0 55%,#11297a 100%);background-size:160% 160%;animation:authShift 14s ease infinite;
+    transition:opacity .38s ease}
+  .splash.fade{opacity:0;pointer-events:none}
+  .splash img{width:74px;height:74px;object-fit:contain;border-radius:16px;background:#fff;padding:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,.28);animation:splashPulse 1.7s ease-in-out infinite}
+  .splash .nm{color:#fff;font-weight:700;font-size:18px;letter-spacing:.01em}
+  .splash .ring{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.32);border-top-color:#fff;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 </style>
 </head>
 <body>
 
+<!-- ================= BOOT SPLASH (กันหน้า login แว๊บตอนรีเฟรช) ================= -->
+<div id="splash" class="splash">
+  <img id="splashLogo" alt="">
+  <div class="nm">Invoice Generator</div>
+  <div class="ring"></div>
+</div>
+
 <!-- ================= LOGIN GATE ================= -->
-<div id="authGate" class="auth-gate">
+<div id="authGate" class="auth-gate hidden">
   <div class="auth-card">
     <div class="auth-logo"><img id="authLogo" alt="logo"></div>
     <h1 style="margin:6px 0 2px;font-size:20px">Invoice Generator</h1>
@@ -1783,11 +1802,17 @@ function showGate(show){
   $('authGate').classList.toggle('hidden',!show);
   document.body.style.overflow = show ? 'hidden':'';
 }
+function hideSplash(){
+  const s=$('splash'); if(!s||s.classList.contains('fade')) return;
+  s.classList.add('fade');
+  setTimeout(()=>s.classList.add('hidden'),420);
+}
+window.hideSplash=hideSplash;
 // เรียกจาก module เมื่อสถานะ login เปลี่ยน
 window.handleAuthState = async function(user){
   // โลโก้ในหน้า login
   try{ $('authLogo').src = logoData||DEFAULT_LOGO; }catch(e){}
-  if(!user){ currentUser=null; $('userInfo').classList.add('hidden'); showGate(true); return; }
+  if(!user){ currentUser=null; $('userInfo').classList.add('hidden'); showGate(true); hideSplash(); return; }
   let u=null; try{ u=await window.fbGetUser(user.uid); }catch(e){ console.warn(e); }
   if(!u){ authMsg('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน — ติดต่อผู้ดูแลระบบ','err'); window.fbLogout(); return; }
   if(u.is_active===false){ authMsg('บัญชีนี้ถูกระงับการใช้งาน','err'); window.fbLogout(); return; }
@@ -1799,6 +1824,7 @@ window.handleAuthState = async function(user){
   showGate(false);
   applyRoleUI();
   showTab('dashboard');
+  hideSplash();
 };
 function applyRoleUI(){
   const p=perm();
@@ -2121,8 +2147,10 @@ function liveRender(){
   $('tdocNo').value=''; // เลขรันอัตโนมัติเมื่อเลือกลูกค้า
   addTaxItem('',1,'',''); renderTaxPreview(false);
   $('qdocDate').value=new Date().toISOString().slice(0,10); $('qdocNo').value=''; addQItem('',''); renderQPreview(false);
-  try{ $('authLogo').src=logoData||DEFAULT_LOGO; }catch(e){}
+  try{ $('authLogo').src=logoData||DEFAULT_LOGO; $('splashLogo').src=logoData||DEFAULT_LOGO; }catch(e){}
   // หน้าแรกหลัง login = Dashboard (จัดการใน handleAuthState) — ก่อน login จะเจอหน้า Login ก่อน
+  // fallback: ถ้า Firebase ไม่พร้อม/ช้าเกินไป ให้ปิด splash แล้วโชว์หน้า login
+  setTimeout(()=>{ if(!currentUser){ showGate(true); hideSplash(); } },6000);
 })();
 </script>
 
