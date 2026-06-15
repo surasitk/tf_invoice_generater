@@ -225,10 +225,13 @@
     -webkit-backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid rgba(230,232,239,.7);
     box-shadow:0 1px 0 rgba(20,25,50,.04),0 8px 28px rgba(20,25,50,.05)}
 
-  /* Tabs — smoother */
-  .tab{transition:color .18s,background .18s,box-shadow .18s,transform .12s}
+  /* Tabs — smoother + EN label with TH subtitle */
+  .tab{transition:color .18s,background .18s,box-shadow .18s,transform .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.12;gap:1px;padding:6px 14px}
+  .tab .t-en{font-size:13px;font-weight:700}
+  .tab .t-th{font-size:10px;font-weight:500;opacity:.65}
   .tab:hover:not(.active){color:var(--ink);background:rgba(255,255,255,.7)}
   .tab.active{box-shadow:0 4px 14px rgba(79,107,255,.34)}
+  .tab.active .t-th{opacity:.9;color:#fff}
   .tab:active{transform:translateY(1px)}
 
   /* Cards — softer, deeper */
@@ -331,17 +334,18 @@
 <header class="appbar">
   <div>
     <h1>Invoice Generator</h1>
+    <div class="sub">ระบบสร้างใบแจ้งหนี้</div>
   </div>
   <div class="tabs">
-    <button class="tab active" id="tab-dashboard" onclick="showTab('dashboard')">🏠 Home</button>
-    <button class="tab" id="tab-quotation" onclick="showTab('quotation')">📝 Quotation</button>
-    <button class="tab" id="tab-create" onclick="showTab('create')">✏️ Create Invoice</button>
-    <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')">🧾 Tax Invoice</button>
-    <button class="tab" id="tab-history" onclick="showTab('history')">📁 History</button>
-    <button class="tab" id="tab-reports" onclick="showTab('reports')">📈 Reports</button>
-    <button class="tab" id="tab-vendor" onclick="showTab('vendor')">🏢 Vendor</button>
-    <button class="tab" id="tab-settings" onclick="showTab('settings')">⚙️ Settings</button>
-    <button class="tab hidden" id="tab-admin" onclick="showTab('admin')">👤 Admin</button>
+    <button class="tab active" id="tab-dashboard" onclick="showTab('dashboard')"><span class="t-en">🏠 Home</span><span class="t-th">หน้าหลัก</span></button>
+    <button class="tab" id="tab-quotation" onclick="showTab('quotation')"><span class="t-en">📝 Quotation</span><span class="t-th">ใบเสนอราคา</span></button>
+    <button class="tab" id="tab-create" onclick="showTab('create')"><span class="t-en">✏️ Create Invoice</span><span class="t-th">สร้างใบแจ้งหนี้</span></button>
+    <button class="tab" id="tab-taxinvoice" onclick="showTab('taxinvoice')"><span class="t-en">🧾 Tax Invoice</span><span class="t-th">ใบกำกับภาษี</span></button>
+    <button class="tab" id="tab-history" onclick="showTab('history')"><span class="t-en">📁 History</span><span class="t-th">ประวัติเอกสาร</span></button>
+    <button class="tab" id="tab-reports" onclick="showTab('reports')"><span class="t-en">📈 Reports</span><span class="t-th">รายงานภาษีขาย</span></button>
+    <button class="tab" id="tab-vendor" onclick="showTab('vendor')"><span class="t-en">🏢 Vendor</span><span class="t-th">ลูกค้า</span></button>
+    <button class="tab" id="tab-settings" onclick="showTab('settings')"><span class="t-en">⚙️ Settings</span><span class="t-th">ตั้งค่า</span></button>
+    <button class="tab hidden" id="tab-admin" onclick="showTab('admin')"><span class="t-en">👤 Admin</span><span class="t-th">ผู้ดูแลระบบ</span></button>
   </div>
   <div id="userInfo" class="userinfo hidden"></div>
 </header>
