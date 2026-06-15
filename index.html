@@ -233,6 +233,13 @@
   .tab.active{box-shadow:0 4px 14px rgba(79,107,255,.34)}
   .tab.active .t-th{opacity:.9;color:#fff}
   .tab:active{transform:translateY(1px)}
+  /* language toggle + per-language tab labels */
+  .langtog{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-left:12px;flex:none}
+  .langtog button{border:none;background:#fff;color:var(--muted);font-family:inherit;font-size:12px;font-weight:700;padding:6px 11px;cursor:pointer;transition:background .15s,color .15s}
+  .langtog button.on{background:var(--brand);color:#fff}
+  body.lang-en .tab .t-th{display:none}
+  body.lang-th .tab .t-en{display:none}
+  body.lang-th .tab .t-th{font-size:13px;font-weight:700;opacity:1}
 
   /* Cards — softer, deeper */
   .card{border-radius:18px;border-color:#ebedf4;
@@ -308,7 +315,7 @@
   @keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 </style>
 </head>
-<body>
+<body class="lang-en">
 
 <!-- ================= BOOT SPLASH (กันหน้า login แว๊บตอนรีเฟรช) ================= -->
 <div id="splash" class="splash">
@@ -346,6 +353,10 @@
     <button class="tab" id="tab-vendor" onclick="showTab('vendor')"><span class="t-en">🏢 Vendor</span><span class="t-th">ลูกค้า</span></button>
     <button class="tab" id="tab-settings" onclick="showTab('settings')"><span class="t-en">⚙️ Settings</span><span class="t-th">ตั้งค่า</span></button>
     <button class="tab hidden" id="tab-admin" onclick="showTab('admin')"><span class="t-en">👤 Admin</span><span class="t-th">ผู้ดูแลระบบ</span></button>
+  </div>
+  <div class="langtog" id="langTog" data-noi18n>
+    <button data-l="en" onclick="setLang('en')">EN</button>
+    <button data-l="th" onclick="setLang('th')">ไทย</button>
   </div>
   <div id="userInfo" class="userinfo hidden"></div>
 </header>
@@ -2295,6 +2306,228 @@ if (firebaseConfig.projectId) {
 } else {
   window.FB_READY = false;
 }
+</script>
+<script>
+/* ============================================================
+   i18n — EN/TH UI translation layer (default English)
+   Translates visible management-UI text TH->EN at runtime.
+   Document previews/PDFs (.paper) are never translated (stay Thai).
+   Toggle reloads the page; TH = native authored text.
+   ============================================================ */
+(function(){
+  var LANG='en'; try{ LANG=localStorage.getItem('ui_lang')||'en'; }catch(e){}
+  window.setLang=function(l){ try{ localStorage.setItem('ui_lang',l); }catch(e){} location.reload(); };
+
+  var SKIP='.paper,#langTog,[data-noi18n],script,style,noscript';
+
+  var DICT={
+    // login gate + brand
+    'ระบบสร้างใบแจ้งหนี้':'Invoice & Tax System',
+    'เข้าสู่ระบบเพื่อใช้งาน':'Sign in to continue',
+    'เข้าสู่ระบบ':'Sign In',
+    'ลืมรหัสผ่าน / ตั้งรหัสผ่านครั้งแรก':'Forgot password / Set first password',
+    // forms (create/quotation/tax)
+    'ชื่อลูกค้า / Customers (เลือกจาก Vendor)':'Customer (select from Vendor)',
+    '— เลือกลูกค้า —':'— Select customer —',
+    '+ Vendor ใหม่':'+ New Vendor',
+    'ที่อยู่ / Address':'Address',
+    'เลือก Vendor แล้วเติมอัตโนมัติ':'Select a Vendor to autofill',
+    'เลขประจำตัวผู้เสียภาษี':'Tax ID',
+    'เอกสาร / Document':'Document',
+    'เลขที่ / No. (รันอัตโนมัติ)':'No. (auto)',
+    'เลือกลูกค้าเพื่อรันเลข':'Select customer to generate number',
+    'วันที่ / Date':'Date',
+    'รายการ / Items':'Items',
+    'รายละเอียด':'Description',
+    'จำนวนเงิน':'Amount',
+    '+ เพิ่มรายการ':'+ Add item',
+    'หมายเหตุ / Note':'Note',
+    'เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX':'e.g. Transfer to bank account XXXXXXXXXX',
+    'ล้างฟอร์ม':'Clear form',
+    'VAT คิด 7% จากรวมเงินอัตโนมัติ · ยอดเงินสุทธิ = รวมเงิน + VAT':'VAT 7% auto-calculated · Net = Subtotal + VAT',
+    'ตัวอย่าง / Preview':'Preview',
+    'แสดง "สำเนา (Copy)"':'Show "Copy"',
+    'กรอกข้อมูลแล้วกด':'Fill in the form and click',
+    'เพื่อดูตัวอย่างใบแจ้งหนี้':'to preview the invoice',
+    'กรอกข้อมูลเพื่อดูตัวอย่าง':'Fill in to preview',
+    'กรอกข้อมูลแล้วกด Preview':'Fill in the form and click Preview',
+    'Quotation Details / ใบเสนอราคา':'Quotation Details',
+    'ยืนราคาถึง / Valid until':'Valid until',
+    'ผู้เสนอราคา':'Prepared by',
+    'ชื่อผู้เสนอราคา':'Name of preparer',
+    'เงื่อนไข / หมายเหตุ':'Terms / Notes',
+    'VAT 7% อัตโนมัติ · เลขรันรูปแบบ {ClientID}-Q{yyMMdd}-{NNN}':'VAT 7% auto · No. format {ClientID}-Q{yyMMdd}-{NNN}',
+    'ผู้ขาย / Salesperson':'Salesperson',
+    'ชื่อผู้ขาย':'Salesperson name',
+    'อ้างอิง / Reference — เลือก Invoice ค้างชำระของลูกค้า (prefill รายการอัตโนมัติ)':'Reference — select an open invoice (auto-prefill items)',
+    '— เลือกลูกค้าก่อน —':'— Select customer first —',
+    'ยอดรวมต่อรายการ = จำนวน × ราคา/หน่วย · VAT 7% อัตโนมัติ':'Line total = Qty × Unit price · VAT 7% auto',
+    // dashboard
+    'แดชบอร์ดลูกค้า / Client Dashboard':'Client Dashboard',
+    'รวมใบแจ้งหนี้ตามลูกค้า · กดที่ลูกค้าเพื่อดูแยกตามสถานะและยอดรวม':'Invoices grouped by client · click a client for status & totals',
+    '🔄 รีเฟรช':'🔄 Refresh',
+    'ยังไม่มีข้อมูลใบแจ้งหนี้':'No invoice data yet',
+    'ลูกค้าทั้งหมด':'Total clients',
+    'ใบแจ้งหนี้ทั้งหมด':'Total invoices',
+    'ยอดรวมทั้งหมด (บาท)':'Total amount (THB)',
+    'ยอดค้างชำระ (บาท)':'Outstanding (THB)',
+    // vendor
+    'Vendor / ลูกค้า':'Vendors',
+    'รายชื่อลูกค้า เรียงตามชื่อ A–Z · ยอดรวมไม่นับใบที่ยกเลิก':'Customers sorted A–Z · totals exclude cancelled',
+    'ชื่อ Vendor':'Vendor name',
+    'ที่อยู่':'Address',
+    'เลขผู้เสียภาษี':'Tax ID',
+    'ยอดรวม (บาท)':'Total (THB)',
+    'ยังไม่มี Vendor — กด "New Vendor" เพื่อเพิ่ม':'No vendors yet — click "New Vendor" to add',
+    '← กลับไปรายชื่อ Vendor':'← Back to vendor list',
+    'สร้าง Vendor ใหม่':'New Vendor',
+    'แก้ไข Vendor':'Edit Vendor',
+    'โลโก้ Vendor (อัปโหลด .png/.jpg)':'Vendor logo (upload .png/.jpg)',
+    'Client ID (รหัสย่อ เช่น JAS, SIX) — ใช้ในเลขรันเอกสาร':'Client ID (short code e.g. JAS, SIX) — used in document numbers',
+    'เช่น JAS':'e.g. JAS',
+    'โลโก้ (ถ้ามี)':'Logo (optional)',
+    'Client ID (รหัสย่อ)':'Client ID (short code)',
+    'บันทึกและใช้':'Save & use',
+    'ยกเลิก':'Cancel',
+    // reports
+    'รายงานภาษีขาย / Sales & VAT Report':'Sales & VAT Report',
+    'สรุปยอดขายและภาษีขาย (สำหรับ ภพ.30) · กรองช่วงวันที่ · Export Excel/CSV':'Sales & VAT summary (for P.P.30) · filter by date · Export Excel/CSV',
+    'ตั้งแต่วันที่':'From date',
+    'ถึงวันที่':'To date',
+    'ประเภทเอกสาร':'Document type',
+    'ใบกำกับภาษี (Tax Invoice)':'Tax Invoice',
+    'ใบแจ้งหนี้ (Invoice)':'Invoice',
+    'ทั้งหมด':'All',
+    'วันที่':'Date',
+    'เลขที่':'No.',
+    'ลูกค้า':'Client',
+    'มูลค่า (ก่อน VAT)':'Amount (excl. VAT)',
+    'รวมทั้งสิ้น':'Total',
+    'ไม่มีเอกสารในช่วงที่เลือก':'No documents in selected range',
+    'จำนวนเอกสาร':'Documents',
+    'ภาษีขาย VAT':'Output VAT',
+    'รวมทั้งสิ้น (บาท)':'Total (THB)',
+    // admin
+    'สร้างผู้ใช้ / Create User':'Create User',
+    'กรอกข้อมูล แล้วกด Generate link — ระบบจะส่งลิงก์ตั้งรหัสผ่านไปที่อีเมลของผู้ใช้':'Fill in details and click Generate link — a password setup link will be emailed to the user',
+    'admin — ดูแลระบบ + จัดการผู้ใช้':'admin — full access + manage users',
+    'accountant — ออก/แก้/ยกเลิกเอกสาร':'accountant — create/edit/cancel documents',
+    'staff — สร้างเอกสาร (แก้/ยกเลิกไม่ได้)':'staff — create documents (no edit/cancel)',
+    'viewer — ดู/ออกรายงานอย่างเดียว':'viewer — view/report only',
+    'ผู้ใช้ทั้งหมด / Users':'Users',
+    'ชื่อ':'Name',
+    'สถานะ':'Status',
+    'Login ล่าสุด':'Last login',
+    'ยังไม่มีผู้ใช้':'No users yet',
+    '● ใช้งาน':'● Active',
+    '○ ระงับ':'○ Suspended',
+    'รหัสผ่าน':'Password',
+    'ออกจากระบบ':'Sign out',
+    // history
+    'รายการเอกสารที่สร้างไว้ · กดสถานะเพื่อเปลี่ยน · กดดาวน์โหลดเพื่อเปิด PDF':'Saved documents · click status to change · click download to open PDF',
+    '+ สร้างใหม่':'+ New',
+    '🔍 ค้นหา เลขที่ / ลูกค้า / รายละเอียด':'🔍 Search no. / client / details',
+    'ตั้งแต่':'From',
+    'ถึง':'To',
+    'ประเภท':'Type',
+    'ล้างตัวกรอง':'Clear filters',
+    'เลขที่ / Number':'Number',
+    'ลูกค้า / Client':'Client',
+    'ยอดสุทธิ':'Net',
+    'ประเภท / Type':'Type',
+    'ยังไม่มีประวัติใบแจ้งหนี้':'No document history yet',
+    'ออกใบกำกับภาษี':'Create Tax Invoice'
+  };
+
+  // status words (used inside option / .spill / .chip / .fpill)
+  var STATUS={'ทั้งหมด':'All','ร่าง':'Draft','ค้างชำระ':'Open','เกินกำหนด':'Overdue','ชำระแล้ว':'Paid','ยกเลิก':'Cancelled'};
+
+  // substring/dynamic replacements (order matters: specific first)
+  var PHRASES=[
+    [/ข้อมูลจาก Firebase \(Cloud\)/g,'Data from Firebase (Cloud)'],
+    [/ข้อมูลจาก Google Drive/g,'Data from Google Drive'],
+    [/เชื่อมต่อ Firebase ไม่ได้ — แสดงข้อมูลในเครื่องแทน/g,'Cannot reach Firebase — showing local data'],
+    [/ยังไม่ได้ตั้งค่า Cloud — เก็บประวัติในเบราว์เซอร์/g,'Cloud not configured — stored in browser'],
+    [/เก็บประวัติในเบราว์เซอร์/g,'Stored in browser'],
+    [/เก็บในเบราว์เซอร์/g,'Stored in browser'],
+    [/กำลังโหลดข้อมูล\.\.\./g,'Loading data...'],
+    [/กำลังโหลด\.\.\./g,'Loading...'],
+    [/ยอดขายรายเดือน \(12 เดือนล่าสุด · ไม่รวมยกเลิก\)/g,'Monthly sales (last 12 months · excl. cancelled)'],
+    [/ออกใบกำกับภาษี/g,'Create Tax Invoice'],
+    [/ออก Invoice/g,'Create Invoice'],
+    [/คัดลอก\/ออกใหม่/g,'Duplicate'],
+    [/ดาวน์โหลด/g,'Download'],
+    [/ส่งลิงก์ใหม่/g,'Resend link'],
+    [/กลับไปรายชื่อลูกค้า/g,'Back to clients'],
+    [/(\d+) ใบแจ้งหนี้ · ยอดรวม/g,'$1 invoices · total'],
+    [/(\d+) ใบแจ้งหนี้/g,'$1 invoices'],
+    [/ (\d[\d,]*) รายการ/g,' $1 items'],
+    [/ (\d+) vendor\b/g,' $1 vendors'],
+    [/โดย /g,'by '],
+    [/ยอดรวม/g,'Total'],
+    [/บาท/g,'THB']
+  ];
+
+  function tCore(core,ctx){
+    if(ctx && ctx.closest && ctx.closest('option,.spill,.chip,.fpill')){
+      if(STATUS[core]!==undefined) return STATUS[core];
+      var m=core.match(/^(.+?)\s+(\d[\d,]*)$/);
+      if(m && STATUS[m[1]]!==undefined) return STATUS[m[1]]+' '+m[2];
+    }
+    if(DICT[core]!==undefined) return DICT[core];
+    var r=core; for(var i=0;i<PHRASES.length;i++){ r=r.replace(PHRASES[i][0],PHRASES[i][1]); }
+    return r;
+  }
+  function tStr(s,ctx){
+    var lead=(s.match(/^\s*/)||[''])[0], trail=(s.match(/\s*$/)||[''])[0], core=s.trim();
+    if(!core) return s;
+    return lead+tCore(core,ctx)+trail;
+  }
+  function tAttr(s){
+    if(!s||!/[฀-๿]/.test(s)) return s;
+    var lead=(s.match(/^\s*/)||[''])[0], trail=(s.match(/\s*$/)||[''])[0], core=s.trim();
+    if(DICT[core]!==undefined) return lead+DICT[core]+trail;
+    var r=core; for(var i=0;i<PHRASES.length;i++){ r=r.replace(PHRASES[i][0],PHRASES[i][1]); }
+    return lead+r+trail;
+  }
+  function tText(node){
+    var p=node.parentNode;
+    if(p && p.nodeType===1 && p.closest && p.closest(SKIP)) return;
+    var s=node.data;
+    if(!s || !/[฀-๿]/.test(s)) return;
+    var out=tStr(s,p);
+    if(out!==s) node.data=out;
+  }
+  function walk(node){
+    if(node.nodeType===3){ tText(node); return; }
+    if(node.nodeType!==1) return;
+    if(node.closest && node.closest(SKIP)) return;
+    if(node.hasAttribute){
+      if(node.hasAttribute('placeholder')){ var ph=node.getAttribute('placeholder'); var nph=tAttr(ph); if(nph!==ph) node.setAttribute('placeholder',nph); }
+      if(node.hasAttribute('title')){ var ti=node.getAttribute('title'); var nti=tAttr(ti); if(nti!==ti) node.setAttribute('title',nti); }
+    }
+    var ch=node.childNodes;
+    for(var i=0;i<ch.length;i++) walk(ch[i]);
+  }
+
+  var mo=new MutationObserver(function(muts){
+    mo.disconnect();
+    muts.forEach(function(m){
+      if(m.type==='characterData'){ tText(m.target); }
+      else { for(var i=0;i<m.addedNodes.length;i++){ var n=m.addedNodes[i]; if(n.nodeType===1) walk(n); else if(n.nodeType===3) tText(n); } }
+    });
+    mo.observe(document.body,{childList:true,subtree:true,characterData:true});
+  });
+
+  function init(){
+    document.body.classList.remove('lang-en','lang-th');
+    document.body.classList.add('lang-'+LANG);
+    var tg=document.getElementById('langTog');
+    if(tg){ var bs=tg.querySelectorAll('button'); for(var i=0;i<bs.length;i++){ bs[i].classList.toggle('on', bs[i].getAttribute('data-l')===LANG); } }
+    if(LANG==='en'){ walk(document.body); mo.observe(document.body,{childList:true,subtree:true,characterData:true}); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
 </script>
 </body>
 </html>
