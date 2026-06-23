@@ -387,8 +387,8 @@
       </div>
 
       <div class="section-title">รายการ / Items</div>
-      <table class="items" style="width:100%">
-        <thead><tr><th style="width:36px">#</th><th>รายละเอียด</th><th style="width:110px">จำนวนเงิน</th><th style="width:34px"></th></tr></thead>
+      <table class="items titems" style="width:100%">
+        <thead><tr><th style="width:26px">#</th><th>รายละเอียด</th><th style="width:50px">จำนวน</th><th style="width:56px">หน่วย</th><th style="width:84px">ราคา/หน่วย</th><th style="width:28px"></th></tr></thead>
         <tbody id="itemsBody"></tbody>
       </table>
       <button class="btn add" onclick="addItem()">+ เพิ่มรายการ</button>
@@ -878,22 +878,25 @@ function bahtText(num){
 
 /* ---------- items ---------- */
 let itemSeq=0;
-function addItem(detail='',amount=''){
+function addItem(detail='',qty=1,unit='',price=''){
   itemSeq++;
   const tr=document.createElement('tr'); tr.dataset.id=itemSeq;
   tr.innerHTML=`
     <td style="text-align:center;color:#9aa0aa" class="rownum"></td>
     <td><textarea class="it-detail" rows="2" oninput="syncTotals()" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
-    <td><input class="it-amt amt" type="number" step="0.01" value="${amount}" oninput="syncTotals()" placeholder="0.00"></td>
+    <td><input class="it-qty" type="number" step="1" min="0" value="${qty}" oninput="syncTotals()" style="text-align:right"></td>
+    <td><input class="it-unit" value="${esc(unit)}" oninput="syncTotals()" placeholder="หน่วย"></td>
+    <td><input class="it-price amt" type="number" step="0.01" value="${price}" oninput="syncTotals()" placeholder="0.00" style="text-align:right"></td>
     <td><button class="icon-btn" onclick="this.closest('tr').remove();syncTotals()">×</button></td>`;
   $('itemsBody').appendChild(tr);
   syncTotals();
 }
 function getItems(){
-  return [...document.querySelectorAll('#itemsBody tr')].map(tr=>({
-    detail: tr.querySelector('.it-detail').value,
-    amount: Number(tr.querySelector('.it-amt').value)||0
-  }));
+  return [...document.querySelectorAll('#itemsBody tr')].map(tr=>{
+    const qty=Number(tr.querySelector('.it-qty').value)||0;
+    const price=Number(tr.querySelector('.it-price').value)||0;
+    return { detail:tr.querySelector('.it-detail').value, qty, unit:tr.querySelector('.it-unit').value, price, amount:Math.round(qty*price*100)/100 };
+  });
 }
 function calc(){
   const items=getItems();
@@ -922,9 +925,13 @@ function buildInvoiceHTML(isCopy){
   const {items,sub,vat,net}=calc();
   let rows='';
   items.forEach((it,i)=>{
-    rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td><td class="c-amt">${fmt(it.amount)}</td></tr>`;
+    rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td>
+      <td style="text-align:right">${it.qty?fmt(it.qty).replace(/\.00$/,''):''}</td>
+      <td class="c">${esc(it.unit||'')}</td>
+      <td style="text-align:right">${fmt(it.price!=null?it.price:it.amount)}</td>
+      <td class="c-amt">${fmt(it.amount)}</td></tr>`;
   });
-  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td class="c-amt">0.00</td></tr>`;
+  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td></td><td></td><td></td><td class="c-amt">0.00</td></tr>`;
   const phone=val('sellerPhone');
   const note=val('docNote');
   const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
@@ -958,9 +965,11 @@ function buildInvoiceHTML(isCopy){
 
   <table class="lines">
     <thead><tr>
-      <th class="c c-no">#</th>
-      <th class="l">รายละเอียด</th>
-      <th class="c-amt">จำนวนเงิน</th>
+      <th class="c c-no">#</th><th class="l">รายละเอียด</th>
+      <th style="text-align:right;width:56px">จำนวน</th>
+      <th class="c" style="width:50px">หน่วย</th>
+      <th style="text-align:right;width:96px">ราคาต่อหน่วย</th>
+      <th class="c-amt">ยอดรวม</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -1058,7 +1067,7 @@ async function generatePDF(){
       vendorId:($('custSelect')?$('custSelect').value:'')||'',
       clientId:(function(){const v=vendorData.find(x=>x.id===val('custSelect'));return v?clientCode(v):'';})(),
       createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''),
-      items:getItems().map(i=>({detail:i.detail, amount:i.amount}))
+      items:getItems().map(i=>({detail:i.detail, qty:i.qty, unit:i.unit, price:i.price, amount:i.amount}))
     };
     const b64=pdf.output('datauristring').split(',')[1];
     await saveHistory(meta,b64);
@@ -1393,8 +1402,8 @@ function duplicateDoc(idx){
     if(v){ $('custSelect').value=v.id; onVendorSelect(); }
     else { $('custSelect').value=''; $('custName').value=it.customer||''; $('custAddr').value=it.custAddr||''; $('custTax').value=it.custTax||''; }
     $('itemsBody').innerHTML='';
-    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,amount:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
-    items.forEach(x=>addItem(x.detail||'', (x.amount!=null?x.amount:0)));
+    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,qty:1,unit:'',price:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
+    items.forEach(x=>addItem(x.detail||'', x.qty||1, x.unit||'', (x.price!=null?x.price:(x.amount||0))));
     $('docNote').value=it.note||'';
     renderPreview(false);
   }
@@ -2160,7 +2169,7 @@ function liveRender(){
   // auto doc number suggestion
   const d=new Date();
   $('docNo').value=''; // เลขรันอัตโนมัติเมื่อเลือกลูกค้า
-  addItem('ค่าตอบแทนหลัก (Base GP) และ ค่าขนส่งสินค้า (Logistic Cost)\nประจำเดือน ........... 25..','');
+  addItem('ค่าตอบแทนหลัก (Base GP) และ ค่าขนส่งสินค้า (Logistic Cost)\nประจำเดือน ........... 25..',1,'','');
   loadLocalSettings(); // โหลด seller/company จาก localStorage (ก่อน Firebase พร้อม)
   applyLogoThumb();
   // live update preview — แยกตาม view
@@ -2340,6 +2349,9 @@ if (firebaseConfig.projectId) {
     'รายการ / Items':'Items',
     'รายละเอียด':'Description',
     'จำนวนเงิน':'Amount',
+    'จำนวน':'Qty',
+    'หน่วย':'Unit',
+    'ราคา/หน่วย':'Unit price',
     '+ เพิ่มรายการ':'+ Add item',
     'หมายเหตุ / Note':'Note',
     'เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX':'e.g. Transfer to bank account XXXXXXXXXX',
