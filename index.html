@@ -1518,7 +1518,6 @@ function buildTaxInvoiceHTML(isCopy){
         <div class="l"><b>เลขที่</b><span>${esc(val('tdocNo'))}</span></div>
         <div class="l"><b>วันที่</b><span>${fmtDate(val('tdocDate'))}</span></div>
         ${credit>0?`<div class="l"><b>เครดิต</b><span>${credit} วัน</span></div>`:''}
-        <div class="l"><b>ครบกำหนด</b><span>${addDays(val('tdocDate'),credit)}</span></div>
         ${sp?`<div class="l"><b>ผู้ขาย</b><span>${esc(sp)}</span></div>`:''}
         ${ref?`<div class="l"><b>อ้างอิง</b><span>${esc(ref)}</span></div>`:''}
       </div>
