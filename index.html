@@ -450,8 +450,8 @@
       </div>
 
       <div class="section-title">Items</div>
-      <table class="items" style="width:100%">
-        <thead><tr><th style="width:36px">#</th><th>รายละเอียด</th><th style="width:110px">จำนวนเงิน</th><th style="width:34px"></th></tr></thead>
+      <table class="items titems" style="width:100%">
+        <thead><tr><th style="width:26px">#</th><th>รายละเอียด</th><th style="width:50px">จำนวน</th><th style="width:56px">หน่วย</th><th style="width:84px">ราคา/หน่วย</th><th style="width:28px"></th></tr></thead>
         <tbody id="qitemsBody"></tbody>
       </table>
       <button class="btn add" onclick="addQItem()">+ เพิ่มรายการ</button>
@@ -1381,8 +1381,8 @@ function duplicateDoc(idx){
     if(v){ $('qcustSelect').value=v.id; onQVendorSelect(); }
     else { $('qcustSelect').value=''; $('qcustName').value=it.customer||''; $('qcustAddr').value=it.custAddr||''; $('qcustTax').value=it.custTax||''; }
     $('qitemsBody').innerHTML='';
-    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,amount:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
-    items.forEach(x=>addQItem(x.detail||'', (x.amount!=null?x.amount:0)));
+    const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,qty:1,unit:'',price:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
+    items.forEach(x=>addQItem(x.detail||'', x.qty||1, x.unit||'', (x.price!=null?x.price:(x.amount||0))));
     $('qdocNote').value=it.note||''; renderQPreview(false); window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
@@ -1961,18 +1961,20 @@ window.seedAdmins = async function(){
 };
 
 /* ============== QUOTATION (ใบเสนอราคา) ============== */
-function addQItem(detail='',amount=''){
+function addQItem(detail='',qty=1,unit='',price=''){
   const tr=document.createElement('tr');
   tr.innerHTML=`
     <td style="text-align:center;color:#9aa0aa" class="qrownum"></td>
     <td><textarea class="qi-detail" rows="2" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
-    <td><input class="qi-amt amt" type="number" step="0.01" value="${amount}" placeholder="0.00"></td>
+    <td><input class="qi-qty" type="number" step="1" min="0" value="${qty}" style="text-align:right"></td>
+    <td><input class="qi-unit" value="${esc(unit)}" placeholder="หน่วย"></td>
+    <td><input class="qi-price amt" type="number" step="0.01" value="${price}" placeholder="0.00" style="text-align:right"></td>
     <td><button class="icon-btn" onclick="this.closest('tr').remove();syncQTotals()">×</button></td>`;
   $('qitemsBody').appendChild(tr);
   tr.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',syncQTotals));
   syncQTotals();
 }
-function getQItems(){ return [...document.querySelectorAll('#qitemsBody tr')].map(tr=>({detail:tr.querySelector('.qi-detail').value, amount:Number(tr.querySelector('.qi-amt').value)||0})); }
+function getQItems(){ return [...document.querySelectorAll('#qitemsBody tr')].map(tr=>{ const qty=Number(tr.querySelector('.qi-qty').value)||0; const price=Number(tr.querySelector('.qi-price').value)||0; return {detail:tr.querySelector('.qi-detail').value, qty, unit:tr.querySelector('.qi-unit').value, price, amount:Math.round(qty*price*100)/100}; }); }
 function calcQ(){ const items=getQItems(); const sub=items.reduce((a,i)=>a+i.amount,0); const vat=Math.round(sub*7)/100; const net=Math.round((sub+vat)*100)/100; return {items,sub,vat,net}; }
 function syncQTotals(){
   document.querySelectorAll('#qitemsBody tr').forEach((tr,i)=>tr.querySelector('.qrownum').textContent=i+1);
@@ -1982,8 +1984,12 @@ function syncQTotals(){
 }
 function buildQuotationHTML(isCopy){
   const {items,sub,vat,net}=calcQ();
-  let rows=''; items.forEach((it,i)=>{ rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td><td class="c-amt">${fmt(it.amount)}</td></tr>`; });
-  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td class="c-amt">0.00</td></tr>`;
+  let rows=''; items.forEach((it,i)=>{ rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td>
+      <td style="text-align:right">${it.qty?fmt(it.qty).replace(/\.00$/,''):''}</td>
+      <td class="c">${esc(it.unit||'')}</td>
+      <td style="text-align:right">${fmt(it.price!=null?it.price:it.amount)}</td>
+      <td class="c-amt">${fmt(it.amount)}</td></tr>`; });
+  if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td></td><td></td><td></td><td class="c-amt">0.00</td></tr>`;
   const note=val('qdocNote'), sp=val('qsalesperson'), valid=val('qvalid');
   const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
   return `
@@ -2002,7 +2008,7 @@ function buildQuotationHTML(isCopy){
       </div></div>
   </div>
   <div class="cust"><div class="hd">ลูกค้า / Customer</div><div>${esc(val('qcustName'))}</div><div>${nl2br(val('qcustAddr'))}</div><div>เลขประจำตัวผู้เสียภาษี ${esc(val('qcustTax'))}</div></div>
-  <table class="lines"><thead><tr><th class="c c-no">#</th><th class="l">รายละเอียด</th><th class="c-amt">จำนวนเงิน</th></tr></thead><tbody>${rows}</tbody></table>
+  <table class="lines"><thead><tr><th class="c c-no">#</th><th class="l">รายละเอียด</th><th style="text-align:right;width:56px">จำนวน</th><th class="c" style="width:50px">หน่วย</th><th style="text-align:right;width:96px">ราคาต่อหน่วย</th><th class="c-amt">ยอดรวม</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="totals"><table>
     <tr><td class="lab">รวมเป็นเงิน</td><td class="val">${fmt(sub)} บาท</td></tr>
     <tr><td class="lab">ภาษีมูลค่าเพิ่ม 7%</td><td class="val">${fmt(vat)} บาท</td></tr>
@@ -2045,7 +2051,7 @@ async function generateQuotationPDF(){
     const fname=((val('qdocNo')||'quotation').replace(/[^\w\-]/g,'_'))+'.pdf'; pdf.save(fname);
     const firstDetail=(getQItems()[0]?.detail||'').split('\n')[0].slice(0,60);
     const selV=vendorData.find(x=>x.id===val('qcustSelect'));
-    const meta={ no:val('qdocNo'), customer:val('qcustName'), date:val('qdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'qt', custAddr:val('qcustAddr'), custTax:val('qcustTax'), vendorId:val('qcustSelect'), clientId:(selV?clientCode(selV):''), createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''), items:getQItems().map(i=>({detail:i.detail,amount:i.amount})) };
+    const meta={ no:val('qdocNo'), customer:val('qcustName'), date:val('qdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'qt', custAddr:val('qcustAddr'), custTax:val('qcustTax'), vendorId:val('qcustSelect'), clientId:(selV?clientCode(selV):''), createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''), items:getQItems().map(i=>({detail:i.detail,qty:i.qty,unit:i.unit,price:i.price,amount:i.amount})) };
     const b64=pdf.output('datauristring').split(',')[1];
     await saveHistory(meta,b64);
     setQStatus('✅ สร้างใบเสนอราคาสำเร็จ และบันทึกแล้ว','ok');
@@ -2189,7 +2195,7 @@ function liveRender(){
   $('tdocDate').value=new Date().toISOString().slice(0,10);
   $('tdocNo').value=''; // เลขรันอัตโนมัติเมื่อเลือกลูกค้า
   addTaxItem('',1,'',''); renderTaxPreview(false);
-  $('qdocDate').value=new Date().toISOString().slice(0,10); $('qdocNo').value=''; addQItem('',''); renderQPreview(false);
+  $('qdocDate').value=new Date().toISOString().slice(0,10); $('qdocNo').value=''; addQItem('',1,'',''); renderQPreview(false);
   try{ $('authLogo').src=logoData||DEFAULT_LOGO; $('splashLogo').src=logoData||DEFAULT_LOGO; }catch(e){}
   // หน้าแรกหลัง login = Dashboard (จัดการใน handleAuthState) — ก่อน login จะเจอหน้า Login ก่อน
   // fallback: ถ้า Firebase ไม่พร้อม/ช้าเกินไป ให้ปิด splash แล้วโชว์หน้า login
