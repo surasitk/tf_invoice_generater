@@ -502,7 +502,16 @@
         <div class="field"><label>เลขที่ / No. (รันอัตโนมัติ)</label><input id="tdocNo" placeholder="เลือกลูกค้าเพื่อรันเลข"></div>
         <div class="field"><label>วันที่ / Date</label><input id="tdocDate" type="date" onchange="updateTaxNo()"></div>
       </div>
-      <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
+      <div class="row2">
+        <div class="field"><label>ผู้ขาย / Salesperson</label><input id="tsalesperson" placeholder="ชื่อผู้ขาย"></div>
+        <div class="field"><label>วิธีชำระเงิน / Payment</label>
+          <select id="tpayMethod" onchange="renderTaxPreview(false)">
+            <option value="เงินสด">เงินสด</option>
+            <option value="โอน">โอน</option>
+            <option value="เช็ค">เช็ค</option>
+          </select>
+        </div>
+      </div>
       <div class="field">
         <label>อ้างอิง / Reference — เลือก Invoice ค้างชำระของลูกค้า (prefill รายการอัตโนมัติ)</label>
         <select id="trefSelect" onchange="onTaxRefSelect()" style="width:100%"><option value="">— เลือกลูกค้าก่อน —</option></select>
@@ -1394,7 +1403,7 @@ function duplicateDoc(idx){
     $('titemsBody').innerHTML='';
     const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,qty:1,unit:'',price:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
     items.forEach(x=>addTaxItem(x.detail||'', x.qty||1, x.unit||'', (x.price!=null?x.price:(x.amount||0))));
-    $('tdocNote').value=it.note||''; taxSource=null;
+    $('tdocNote').value=it.note||''; if(it.payMethod) $('tpayMethod').value=it.payMethod; taxSource=null;
     renderTaxPreview(false);
   } else {
     showTab('create');
@@ -1498,7 +1507,7 @@ function buildTaxInvoiceHTML(isCopy){
   });
   if(items.length===0) rows=`<tr><td class="c c-no">1</td><td class="l" style="color:#bbb">—</td><td></td><td></td><td></td><td class="c-amt">0.00</td></tr>`;
   const credit=Number(val('tcredit'))||0;
-  const note=val('tdocNote'); const sp=val('tsalesperson'); const ref=taxSource?taxSource.no:'';
+  const note=val('tdocNote'); const sp=val('tsalesperson'); const ref=taxSource?taxSource.no:''; const pay=val('tpayMethod');
   const sellerName=val('sellerThai').replace(/\s*\(สำนักงานใหญ่\)/,'');
   return `
   <div class="inv-corner"><span>1</span></div>
@@ -1519,6 +1528,7 @@ function buildTaxInvoiceHTML(isCopy){
         <div class="l"><b>วันที่</b><span>${fmtDate(val('tdocDate'))}</span></div>
         ${credit>0?`<div class="l"><b>เครดิต</b><span>${credit} วัน</span></div>`:''}
         ${sp?`<div class="l"><b>ผู้ขาย</b><span>${esc(sp)}</span></div>`:''}
+        ${pay?`<div class="l"><b>ชำระโดย</b><span>${esc(pay)}</span></div>`:''}
         ${ref?`<div class="l"><b>อ้างอิง</b><span>${esc(ref)}</span></div>`:''}
       </div>
     </div>
@@ -1642,7 +1652,7 @@ async function generateTaxPDF(){
     const firstDetail=(getTaxItems()[0]?.detail||'').split('\n')[0].slice(0,60);
     const srcId=taxSource?(taxSource.id||taxSource.no):'';
     const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'paid', docType:'tax',
-      custAddr:val('tcustAddr'), custTax:val('tcustTax'),
+      custAddr:val('tcustAddr'), custTax:val('tcustTax'), payMethod:val('tpayMethod'),
       clientId:(function(){const v=vendorData.find(x=>x.id===val('tcustSelect'));return v?clientCode(v):(taxSource&&taxSource.clientId)||'';})(),
       sourceInvoiceId:srcId, sourceInvoiceNo:(taxSource?taxSource.no:''),
       createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''),
@@ -2357,6 +2367,10 @@ if (firebaseConfig.projectId) {
     'จำนวน':'Qty',
     'หน่วย':'Unit',
     'ราคา/หน่วย':'Unit price',
+    'วิธีชำระเงิน / Payment':'Payment method',
+    'เงินสด':'Cash',
+    'โอน':'Transfer',
+    'เช็ค':'Cheque',
     '+ เพิ่มรายการ':'+ Add item',
     'หมายเหตุ / Note':'Note',
     'เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX':'e.g. Transfer to bank account XXXXXXXXXX',
