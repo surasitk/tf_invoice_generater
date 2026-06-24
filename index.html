@@ -517,6 +517,17 @@
         <select id="trefSelect" onchange="onTaxRefSelect()" style="width:100%"><option value="">— เลือกลูกค้าก่อน —</option></select>
       </div>
 
+      <div class="field" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:600;color:var(--ink)">
+          <input type="checkbox" id="twhtEnable" onchange="syncTaxTotals()"> หัก ณ ที่จ่าย
+        </label>
+        <select id="twhtPct" onchange="syncTaxTotals()" style="width:90px">
+          <option value="3">3%</option>
+          <option value="7">7%</option>
+        </select>
+        <span class="hint" style="margin:0">คิด % จากยอดก่อน VAT</span>
+      </div>
+
       <table class="hidden"><tbody id="titemsBody"></tbody></table>
 
       <div class="section-title">Note</div>
@@ -1403,7 +1414,9 @@ function duplicateDoc(idx){
     $('titemsBody').innerHTML='';
     const items=(it.items&&it.items.length)?it.items:[{detail:it.subject,qty:1,unit:'',price:Math.round(((Number(it.net)||0)/1.07)*100)/100}];
     items.forEach(x=>addTaxItem(x.detail||'', x.qty||1, x.unit||'', (x.price!=null?x.price:(x.amount||0))));
-    $('tdocNote').value=it.note||''; if(it.payMethod) $('tpayMethod').value=it.payMethod; taxSource=null;
+    $('tdocNote').value=it.note||''; if(it.payMethod) $('tpayMethod').value=it.payMethod;
+    if($('twhtEnable')){ $('twhtEnable').checked=!!it.whtEnabled; if(it.whtPct)$('twhtPct').value=String(it.whtPct); }
+    taxSource=null;
     renderTaxPreview(false);
   } else {
     showTab('create');
@@ -1478,15 +1491,21 @@ function calcTax(){
   const sub=items.reduce((a,i)=>a+i.amount,0);
   const vat=Math.round(sub*7)/100;
   const net=Math.round((sub+vat)*100)/100;
-  return {items,sub,vat,net};
+  const whtOn=!!($('twhtEnable')&&$('twhtEnable').checked);
+  const whtPct=Number($('twhtPct')&&$('twhtPct').value)||3;
+  const wht=whtOn?Math.round(sub*whtPct)/100:0;      // X% ของยอดก่อน VAT
+  const payable=Math.round((net-wht)*100)/100;
+  return {items,sub,vat,net,whtOn,whtPct,wht,payable};
 }
 function syncTaxTotals(){
   document.querySelectorAll('#titemsBody tr').forEach((tr,i)=>tr.querySelector('.trownum').textContent=i+1);
-  const {sub,vat,net}=calcTax();
+  const {sub,vat,net,whtOn,whtPct,wht,payable}=calcTax();
   $('ttotSummary').innerHTML=`
     <div class="line"><span>รวมเป็นเงิน</span><b>${fmt(sub)}</b></div>
     <div class="line"><span>ภาษีมูลค่าเพิ่ม (VAT 7%)</span><b>${fmt(vat)}</b></div>
-    <div class="line net"><span>จำนวนเงินรวมทั้งสิ้น</span><span>${fmt(net)} บาท</span></div>`;
+    <div class="line net"><span>จำนวนเงินรวมทั้งสิ้น</span><span>${fmt(net)} บาท</span></div>
+    ${whtOn?`<div class="line"><span>หัก ณ ที่จ่าย ${whtPct}%</span><b>(${fmt(wht)})</b></div>
+    <div class="line net"><span>ยอดชำระสุทธิ</span><span>${fmt(payable)} บาท</span></div>`:''}`;
   renderTaxPreview(false);
 }
 function addDays(dateStr,days){
@@ -1496,7 +1515,7 @@ function addDays(dateStr,days){
   return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+(d.getFullYear()+543);
 }
 function buildTaxInvoiceHTML(isCopy){
-  const {items,sub,vat,net}=calcTax();
+  const {items,sub,vat,net,whtOn,whtPct,wht,payable}=calcTax();
   let rows='';
   items.forEach((it,i)=>{
     rows+=`<tr><td class="c c-no">${i+1}</td><td class="l">${nl2br(it.detail)}</td>
@@ -1556,8 +1575,10 @@ function buildTaxInvoiceHTML(isCopy){
     <tr><td class="lab">รวมเป็นเงิน</td><td class="val">${fmt(sub)} บาท</td></tr>
     <tr><td class="lab">ภาษีมูลค่าเพิ่ม 7%</td><td class="val">${fmt(vat)} บาท</td></tr>
     <tr class="net"><td class="lab">จำนวนเงินรวมทั้งสิ้น</td><td class="val">${fmt(net)} บาท</td></tr>
+    ${whtOn?`<tr><td class="lab">หัก ณ ที่จ่าย ${whtPct}%</td><td class="val">(${fmt(wht)}) บาท</td></tr>
+    <tr class="net"><td class="lab">ยอดชำระสุทธิ</td><td class="val">${fmt(payable)} บาท</td></tr>`:''}
   </table></div>
-  <div class="baht">(ตัวอักษร) ${esc(bahtText(net))}</div>
+  <div class="baht">(ตัวอักษร) ${esc(bahtText(whtOn?payable:net))}</div>
   ${note?`<div class="note"><span class="hd">หมายเหตุ</span><br>${nl2br(note)}</div>`:''}
 
   <div class="sign">
@@ -1620,6 +1641,7 @@ function resetTaxForm(){
   ['tcustName','tcustAddr','tcustTax','tdocNo','tsalesperson','tdocNote'].forEach(id=>$(id).value='');
   const cs=$('tcustSelect'); if(cs) cs.value='';
   taxSource=null; const rs=$('trefSelect'); if(rs) rs.innerHTML='<option value="">— เลือกลูกค้าก่อน —</option>';
+  if($('twhtEnable'))$('twhtEnable').checked=false; if($('twhtPct'))$('twhtPct').value='3';
   $('titemsBody').innerHTML=''; addTaxItem();
   $('tEmptyPreview').classList.remove('hidden'); $('tpaper').classList.add('hidden');
   setTaxStatus('',''); $('taxFormStatus').className='status';
@@ -1630,7 +1652,7 @@ async function generateTaxPDF(){
   renderTaxPreview();
   const btn=$('btnTaxPdf'); btn.disabled=true; setTaxStatus('⏳ กำลังสร้าง PDF...','info');
   try{
-    const {net}=calcTax();
+    const {net,whtOn,whtPct,wht,payable}=calcTax();
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF('p','mm','a4'); const pw=210, ph=297;
     let holder=document.getElementById('pdfHolder');
@@ -1653,6 +1675,7 @@ async function generateTaxPDF(){
     const srcId=taxSource?(taxSource.id||taxSource.no):'';
     const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'paid', docType:'tax',
       custAddr:val('tcustAddr'), custTax:val('tcustTax'), payMethod:val('tpayMethod'),
+      whtEnabled:whtOn, whtPct:whtPct, wht:wht, payable:payable,
       clientId:(function(){const v=vendorData.find(x=>x.id===val('tcustSelect'));return v?clientCode(v):(taxSource&&taxSource.clientId)||'';})(),
       sourceInvoiceId:srcId, sourceInvoiceNo:(taxSource?taxSource.no:''),
       createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''),
@@ -2371,6 +2394,9 @@ if (firebaseConfig.projectId) {
     'เงินสด':'Cash',
     'โอน':'Transfer',
     'เช็ค':'Cheque',
+    'หัก ณ ที่จ่าย':'Withholding tax',
+    'คิด % จากยอดก่อน VAT':'% of pre-VAT amount',
+    'ยอดชำระสุทธิ':'Net payable',
     '+ เพิ่มรายการ':'+ Add item',
     'หมายเหตุ / Note':'Note',
     'เช่น สามารถโอนเงินเข้าได้ที่ บัญชีธนาคาร XXXXXXXXXX':'e.g. Transfer to bank account XXXXXXXXXX',
