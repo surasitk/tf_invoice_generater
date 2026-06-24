@@ -1196,11 +1196,16 @@ function dlLink(it){
   return '—';
 }
 function isTestClient(name){ return /test|ทดสอบ/i.test(name||''); } // บริษัททดสอบ ไม่นับในแดชบอร์ด
+// เซ็ตของ Invoice ที่ถูกอ้างอิงโดยใบกำกับภาษี (เพื่อ de-dup ไม่ให้นับซ้ำ — บิลเดียวกัน)
+function taxRefSet(){ const s=new Set(); histData.forEach(t=>{ if(t.docType==='tax'){ if(t.sourceInvoiceId) s.add(String(t.sourceInvoiceId)); if(t.sourceInvoiceNo) s.add(String(t.sourceInvoiceNo)); } }); return s; }
+function isSupersededInv(it,s){ if(it.docType==='tax'||it.docType==='qt') return false; return !!it.taxInvoiceId || s.has(String(it.id||' ')) || s.has(String(it.no||' ')); }
 function groupByClient(){
   const map={};
+  const trs=taxRefSet();
   histData.forEach(it=>{
     if(it.docType==='qt') return; // ใบเสนอราคาไม่นับในแดชบอร์ดลูกค้า
     if(it.status==='cancelled') return; // ไม่นับใบที่ยกเลิกในแดชบอร์ด
+    if(isSupersededInv(it,trs)) return; // Invoice ที่ออกใบกำกับภาษีแล้ว ไม่นับซ้ำ (นับเฉพาะใบกำกับภาษี)
     const key=(it.customer||'ไม่ระบุลูกค้า').trim()||'ไม่ระบุลูกค้า';
     if(isTestClient(key)) return; // ไม่นับบริษัททดสอบ
     if(!map[key]) map[key]={name:key, items:[], total:0, byStatus:{}};
@@ -1274,7 +1279,8 @@ function renderDashChart(){
   const now=new Date(); const months=[];
   for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push({key:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2), label:('0'+(d.getMonth()+1)).slice(-2)+'/'+(d.getFullYear()%100)}); }
   const sums={}; months.forEach(m=>sums[m.key]=0);
-  histData.forEach(i=>{ if(i.status==='cancelled'||i.docType==='qt') return; const key=(i.date||'').slice(0,7); if(key in sums) sums[key]+=Number(i.net)||0; });
+  const trs=taxRefSet();
+  histData.forEach(i=>{ if(i.status==='cancelled'||i.docType==='qt') return; if(isSupersededInv(i,trs)) return; const key=(i.date||'').slice(0,7); if(key in sums) sums[key]+=Number(i.net)||0; });
   const max=Math.max(1,...months.map(m=>sums[m.key]));
   el.innerHTML=`<div class="card" style="margin-bottom:16px"><div class="hint" style="margin-bottom:12px">📊 ยอดขายรายเดือน (12 เดือนล่าสุด · ไม่รวมยกเลิก)</div>
     <div class="barchart">${months.map(m=>{const h=Math.round(sums[m.key]/max*100); return `<div class="bar-col"><div class="bar-wrap"><div class="bar" style="height:${h}%" title="${esc(m.label)}: ${fmt(sums[m.key])} บาท"></div></div><div class="bar-lbl">${esc(m.label)}</div></div>`;}).join('')}</div></div>`;
