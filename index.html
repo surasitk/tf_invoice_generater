@@ -1230,14 +1230,19 @@ function renderDashClients(){
   $('dashKpis').classList.remove('hidden');
   const groups=groupByClient(); // ไม่รวมยกเลิก/ใบเสนอราคา/บริษัททดสอบ
   const allItems=groups.flatMap(g=>g.items);
-  const totalAmt=allItems.reduce((a,i)=>a+(Number(i.net)||0),0);
-  const outstanding=allItems.filter(i=>i.status==='open'||i.status==='overdue').reduce((a,i)=>a+(Number(i.net)||0),0);
-  const invCount=allItems.length;
+  // แยกตามประเภทเอกสาร — ไม่นำ Invoice กับ Tax Invoice มารวมยอดเดียวกัน
+  const invItems=allItems.filter(i=>i.docType!=='tax'&&i.docType!=='qt');
+  const taxItems=allItems.filter(i=>i.docType==='tax');
+  const unpaidInv=invItems.filter(i=>i.status==='open'||i.status==='overdue');
+  const unpaidAmt=unpaidInv.reduce((a,i)=>a+(Number(i.net)||0),0);
+  const taxTotal=taxItems.reduce((a,i)=>a+(Number(i.net)||0),0);
+  const whtTotal=taxItems.reduce((a,i)=>a+(Number(i.wht)||0),0);
+  const subSt='font-size:13px;font-weight:600;color:var(--muted)';
   $('dashKpis').innerHTML=`
     <div class="kpi"><div class="k">ลูกค้าทั้งหมด</div><div class="v">${groups.length}</div></div>
-    <div class="kpi"><div class="k">ใบแจ้งหนี้ทั้งหมด</div><div class="v">${invCount}</div></div>
-    <div class="kpi"><div class="k">ยอดรวมทั้งหมด (บาท)</div><div class="v brand">${fmt(totalAmt)}</div></div>
-    <div class="kpi"><div class="k">ยอดค้างชำระ (บาท)</div><div class="v" style="color:#6d28d9">${fmt(outstanding)}</div></div>`;
+    <div class="kpi"><div class="k">Invoice ค้างชำระ</div><div class="v" style="color:#6d28d9">${unpaidInv.length} <small style="${subSt}">ฉบับ</small></div><div class="hint" style="margin-top:3px">${fmt(unpaidAmt)} บาท</div></div>
+    <div class="kpi"><div class="k">Tax Invoice ทั้งหมด</div><div class="v">${taxItems.length} <small style="${subSt}">ฉบับ</small></div><div class="hint" style="margin-top:3px">${fmt(taxTotal)} บาท</div></div>
+    <div class="kpi"><div class="k">หัก ณ ที่จ่าย (บาท)</div><div class="v brand">${fmt(whtTotal)}</div></div>`;
   if(groups.length===0){ $('dashClients').innerHTML=''; $('dashEmpty').classList.remove('hidden'); return; }
   $('dashEmpty').classList.add('hidden');
   $('dashClients').innerHTML=groups.map((g,i)=>{
@@ -2425,6 +2430,10 @@ if (firebaseConfig.projectId) {
     '🔄 รีเฟรช':'🔄 Refresh',
     'ยังไม่มีข้อมูลใบแจ้งหนี้':'No invoice data yet',
     'ลูกค้าทั้งหมด':'Total clients',
+    'Invoice ค้างชำระ':'Unpaid invoices',
+    'Tax Invoice ทั้งหมด':'Tax Invoices',
+    'หัก ณ ที่จ่าย (บาท)':'Withholding tax (THB)',
+    'ฉบับ':'docs',
     'ใบแจ้งหนี้ทั้งหมด':'Total invoices',
     'ยอดรวมทั้งหมด (บาท)':'Total amount (THB)',
     'ยอดค้างชำระ (บาท)':'Outstanding (THB)',
