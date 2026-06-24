@@ -176,6 +176,7 @@
   .bar-lbl{font-size:10px;color:var(--muted)}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
   .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .dash-sec-title{font-size:13px;font-weight:700;color:var(--ink);margin:4px 0 10px;padding-left:10px;border-left:3px solid var(--brand)}
   .ccard{border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,border .15s;background:#fff}
   .ccard:hover{border-color:var(--brand);box-shadow:0 4px 16px rgba(79,107,255,.12)}
   .ccard .top{display:flex;align-items:center;gap:11px}
@@ -1245,22 +1246,27 @@ function renderDashClients(){
     <div class="kpi"><div class="k">หัก ณ ที่จ่าย (บาท)</div><div class="v brand">${fmt(whtTotal)}</div></div>`;
   if(groups.length===0){ $('dashClients').innerHTML=''; $('dashEmpty').classList.remove('hidden'); return; }
   $('dashEmpty').classList.add('hidden');
-  $('dashClients').innerHTML=groups.map((g,i)=>{
+  window._dashGroups=groups;
+  const cardHTML=(g,i,its)=>{
     const initial=(g.name).replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
-    const chips=Object.keys(g.byStatus).map(s=>{
-      const sm=STATUS_META[s]||STATUS_META.open;
-      return `<span class="chip ${sm.cls}">${sm.label} ${g.byStatus[s]}</span>`;
-    }).join('');
+    const total=its.reduce((a,x)=>a+(Number(x.net)||0),0);
+    const by={}; its.forEach(x=>by[x.status]=(by[x.status]||0)+1);
+    const chips=Object.keys(by).map(s=>{ const sm=STATUS_META[s]||STATUS_META.open; return `<span class="chip ${sm.cls}">${sm.label} ${by[s]}</span>`; }).join('');
     return `<div class="ccard" onclick="openClient(${i})">
       <div class="top">
         <span class="avatar" style="background:${avaColor(g.name)}">${esc(initial)}</span>
-        <div><div class="nm">${esc(g.name)}</div><div class="sub">${g.items.length} ใบแจ้งหนี้</div></div>
+        <div><div class="nm">${esc(g.name)}</div><div class="sub">${its.length} ฉบับ</div></div>
       </div>
-      <div class="amt">${fmt(g.total)} <small>บาท</small></div>
+      <div class="amt">${fmt(total)} <small>บาท</small></div>
       <div class="chips">${chips}</div>
     </div>`;
-  }).join('');
-  window._dashGroups=groups;
+  };
+  const section=(title,statuses)=>{
+    const cards=groups.map((g,i)=>{ const its=g.items.filter(x=>statuses.includes(x.status)); return its.length?cardHTML(g,i,its):''; }).filter(Boolean).join('');
+    return cards?`<div class="dash-sec-title">${title}</div><div class="dash-grid" style="margin-bottom:18px">${cards}</div>`:'';
+  };
+  $('dashClients').style.display='block';
+  $('dashClients').innerHTML=section('ยังไม่ชำระ / Unpaid',['open','overdue','draft'])+section('ชำระแล้ว / Paid',['paid']);
   renderDashChart();
 }
 function renderDashChart(){
@@ -2434,6 +2440,8 @@ if (firebaseConfig.projectId) {
     'Tax Invoice ทั้งหมด':'Tax Invoices',
     'หัก ณ ที่จ่าย (บาท)':'Withholding tax (THB)',
     'ฉบับ':'docs',
+    'ยังไม่ชำระ / Unpaid':'Unpaid',
+    'ชำระแล้ว / Paid':'Paid',
     'ใบแจ้งหนี้ทั้งหมด':'Total invoices',
     'ยอดรวมทั้งหมด (บาท)':'Total amount (THB)',
     'ยอดค้างชำระ (บาท)':'Outstanding (THB)',
@@ -2530,6 +2538,7 @@ if (firebaseConfig.projectId) {
     [/ (\d[\d,]*) รายการ/g,' $1 items'],
     [/ (\d+) vendor\b/g,' $1 vendors'],
     [/โดย /g,'by '],
+    [/ฉบับ/g,'docs'],
     [/ยอดรวม/g,'Total'],
     [/บาท/g,'THB']
   ];
