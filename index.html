@@ -76,9 +76,17 @@
   .status.info{background:#dbeafe;color:var(--brand-dark)}
 
   /* ===== Preview / Invoice paper (FlowAccount style) ===== */
-  .preview-pane{position:relative}
-  .paper-scroll{overflow:auto;background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;justify-content:center}
+  .preview-pane{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;height:calc(100vh - 150px);min-height:520px;overflow:hidden}
+  .paper-scroll{overflow:auto;background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;justify-content:center;align-items:flex-start;flex:1 1 auto;min-height:340px}
   .paper{background:#fff;width:760px;min-height:1075px;padding:46px 48px;box-shadow:0 2px 12px rgba(0,0,0,.12);color:#222;font-size:13px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+  /* ย่อ/ขยายตัวอย่างให้พอดี 1 หน้า โดยไม่ต้องเลื่อนดู */
+  .paper-stage{flex:none;position:relative;width:760px;height:1075px}
+  .paper-stage>.paper{position:absolute;top:0;left:0;transform-origin:top left;transform:scale(var(--pscale,1))}
+  .paper-stage:has(>.paper.hidden){display:none}
+  .pvzoom{display:inline-flex;gap:4px;align-items:center}
+  .pvzoom button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;font-size:12px;line-height:1.5;cursor:pointer;color:#555}
+  .pvzoom button:hover{background:#f3f5fb}
+  .pvzoom button.on{background:var(--brand);border-color:var(--brand);color:#fff}
   /* corner page-number triangle */
   .inv-corner{position:absolute;top:0;right:0;width:0;height:0;border-top:54px solid #6d28d9;border-left:54px solid transparent}
   .inv-corner span{position:absolute;top:-48px;right:6px;color:#fff;font-weight:700;font-size:15px}
@@ -139,9 +147,26 @@
   .paper.theme-amber table.lines thead th{background:#fbeed5;color:#8a5a10;border-color:#eed9ad}
   .paper.theme-amber .totals tr.net .val{color:#b9710f}
   .paper.theme-amber .note .hd{color:#c8801a}
+  /* ===== รายการเงินได้ในฟอร์มใบหัก ณ ที่จ่าย — การ์ดแทนตาราง =====
+     เดิมใช้ตาราง 7 คอลัมน์ พอฟอร์มกว้างไม่พอ คอลัมน์ "ประเภทเงินได้" ถูกบีบจนล้นทับช่องอื่น */
+  .witems{display:flex;flex-direction:column;gap:10px}
+  .witem{border:1px solid var(--line);border-radius:12px;padding:11px 12px 12px;background:#fafbfd}
+  .witem:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,107,255,.12);background:#fff}
+  .witem .wi-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .witem .wrownum{font-size:11px;font-weight:700;color:var(--brand);background:var(--soft);
+    border-radius:20px;padding:2px 10px}
+  .witem .wi-head .icon-btn{margin-left:auto;width:26px;height:26px;font-size:14px}
+  .witem .wi-lb{display:block;font-size:11px;font-weight:600;color:var(--muted);margin:0 0 3px}
+  .witem select,.witem input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;
+    font-family:inherit;font-size:13px;background:#fff;color:var(--ink)}
+  .witem select:focus,.witem input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,107,255,.15)}
+  .witem .wi-desc{margin-top:7px}
+  .witem .wi-grid{display:grid;grid-template-columns:1.25fr 1.1fr .6fr 1.1fr;gap:8px;margin-top:9px}
+  .witem .wi-amt,.witem .wi-rate,.witem .wi-tax{text-align:right}
+  @media(max-width:1180px){ .witem .wi-grid{grid-template-columns:1fr 1fr} }
   /* ===== ตัวอย่าง PDF หนังสือรับรองหัก ณ ที่จ่าย (ฝังแบบฟอร์มจริงของกรมสรรพากร) ===== */
-  .pdfview{background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:10px;min-height:620px;display:flex}
-  .pdfview iframe{width:100%;height:78vh;min-height:600px;border:none;border-radius:8px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+  .pdfview{background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:10px;flex:1 1 auto;min-height:340px;display:flex}
+  .pdfview iframe{width:100%;height:100%;min-height:0;border:none;border-radius:8px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.12)}
   .pdfview .empty-preview{margin:auto}
   /* tax invoice item table (more columns) */
   table.titems{table-layout:fixed;width:100%}
@@ -442,11 +467,12 @@
         <h2 style="margin:0">ตัวอย่าง / Preview</h2>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <label class="hint" style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="copyToggle" onchange="renderPreview()"> แสดง "สำเนา (Copy)"</label>
+          <div class="pvzoom"><button type="button" class="on" onclick="setPvZoom('paperScroll','fit',this)">พอดีหน้า</button><button type="button" onclick="setPvZoom('paperScroll',1,this)">100%</button></div>
         </div>
       </div>
       <div class="paper-scroll" id="paperScroll">
         <div class="empty-preview" id="emptyPreview">กรอกข้อมูลแล้วกด <b>Preview</b> เพื่อดูตัวอย่างใบแจ้งหนี้</div>
-        <div class="paper hidden" id="paper"></div>
+        <div class="paper-stage" id="paperStage"><div class="paper hidden" id="paper"></div></div>
       </div>
     </div>
   </div>
@@ -501,11 +527,14 @@
     <div class="card preview-pane">
       <div class="toolbar">
         <h2 style="margin:0">ตัวอย่าง / Preview</h2>
-        <label class="hint" style="margin-left:auto;display:flex;gap:5px;align-items:center"><input type="checkbox" id="qcopyToggle" onchange="renderQPreview()"> แสดง "สำเนา (Copy)"</label>
+        <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+          <label class="hint" style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="qcopyToggle" onchange="renderQPreview()"> แสดง "สำเนา (Copy)"</label>
+          <div class="pvzoom"><button type="button" class="on" onclick="setPvZoom('qpaperScroll','fit',this)">พอดีหน้า</button><button type="button" onclick="setPvZoom('qpaperScroll',1,this)">100%</button></div>
+        </div>
       </div>
       <div class="paper-scroll" id="qpaperScroll">
         <div class="empty-preview" id="qEmptyPreview">กรอกข้อมูลเพื่อดูตัวอย่าง</div>
-        <div class="paper theme-amber hidden" id="qpaper"></div>
+        <div class="paper-stage" id="qpaperStage"><div class="paper theme-amber hidden" id="qpaper"></div></div>
       </div>
     </div>
   </div>
@@ -579,11 +608,12 @@
         <h2 style="margin:0">ตัวอย่าง / Preview</h2>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <label class="hint" style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="tcopyToggle" onchange="renderTaxPreview()"> แสดง "สำเนา (Copy)"</label>
+          <div class="pvzoom"><button type="button" class="on" onclick="setPvZoom('tpaperScroll','fit',this)">พอดีหน้า</button><button type="button" onclick="setPvZoom('tpaperScroll',1,this)">100%</button></div>
         </div>
       </div>
       <div class="paper-scroll" id="tpaperScroll">
         <div class="empty-preview" id="tEmptyPreview">กรอกข้อมูลแล้วกด <b>Preview</b></div>
-        <div class="paper theme-green hidden" id="tpaper"></div>
+        <div class="paper-stage" id="tpaperStage"><div class="paper theme-green hidden" id="tpaper"></div></div>
       </div>
     </div>
   </div>
@@ -631,17 +661,7 @@
       </div>
 
       <div class="section-title">ประเภทเงินได้ที่จ่าย</div>
-      <table class="items titems" style="width:100%">
-        <thead><tr>
-          <th style="width:24px">#</th><th>ประเภทเงินได้</th>
-          <th style="width:96px">วันที่จ่าย</th>
-          <th style="width:84px">จำนวนเงิน</th>
-          <th style="width:46px">%</th>
-          <th style="width:84px">ภาษีที่หัก</th>
-          <th style="width:26px"></th>
-        </tr></thead>
-        <tbody id="witemsBody"></tbody>
-      </table>
+      <div id="witemsBody" class="witems"></div>
       <button class="btn add" onclick="addWhtItem()">+ เพิ่มรายการ</button>
       <div class="hint">ภาษีที่หัก = จำนวนเงิน × % (แก้ตัวเลขเองได้ถ้าต้องปัดเศษ)</div>
 
@@ -942,8 +962,8 @@
    VERSION — แก้ที่นี่ที่เดียวทุกครั้งที่ปล่อยเวอร์ชันใหม่
    แล้วอย่าลืมเพิ่ม Release Note ใน README.md ให้ตรงกัน
    ============================================================ */
-const APP_VERSION = "1.2.0";
-const APP_VERSION_DATE = "2026-09-01";
+const APP_VERSION = "1.2.2";
+const APP_VERSION_DATE = "2026-09-15";
 
 const CONFIG = {
   SCRIPT_URL: "",  // <-- เช่น "https://script.google.com/macros/s/AKfy...../exec"
@@ -1177,10 +1197,53 @@ function buildInvoiceHTML(isCopy){
     </div>
   </div>`;
 }
+
+/* ---------- ตัวอย่างเอกสาร: ย่อให้เห็นเต็ม 1 หน้าโดยไม่ต้องเลื่อน ---------- */
+const PV_SCROLLS=['paperScroll','qpaperScroll','tpaperScroll'];
+const PV_ZOOM={};
+function fitPaper(id){
+  const sc=$(id); if(!sc) return;
+  sizePreviewPanes();
+  const stage=sc.querySelector('.paper-stage'); if(!stage) return;
+  const paper=stage.querySelector('.paper'); if(!paper) return;
+  if(paper.classList.contains('hidden')) return;
+  const pw=760, ph=Math.max(1075, paper.offsetHeight);
+  const cs=getComputedStyle(sc);
+  const availW=sc.clientWidth-parseFloat(cs.paddingLeft||0)-parseFloat(cs.paddingRight||0);
+  const availH=sc.clientHeight-parseFloat(cs.paddingTop||0)-parseFloat(cs.paddingBottom||0);
+  const mode=PV_ZOOM[id]||'fit';
+  let k = (mode==='fit') ? Math.min(availW/pw, availH/ph) : Number(mode);
+  if(!isFinite(k)||k<=0) k=1;
+  k=Math.max(0.2,Math.min(k,2));
+  stage.style.setProperty('--pscale',k);
+  stage.style.width=(pw*k)+'px';
+  stage.style.height=(ph*k)+'px';
+}
+function sizePreviewPanes(){
+  document.querySelectorAll('.preview-pane').forEach(pane=>{
+    if(!pane.offsetParent) return;                       // แท็บที่ซ่อนอยู่ ข้าม
+    let top=0, n=pane; while(n){ top+=n.offsetTop; n=n.offsetParent; }  // offsetTop ไม่โดน sticky รบกวน
+    const h=Math.max(520, Math.round(window.innerHeight-top-16));
+    pane.style.height=h+'px';
+  });
+}
+function fitAllPapers(){ sizePreviewPanes(); PV_SCROLLS.forEach(fitPaper); }
+function setPvZoom(id,z,btn){
+  PV_ZOOM[id]=z;
+  if(btn&&btn.parentNode){ btn.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+  fitPaper(id);
+  const sc=$(id); if(sc&&z!=='fit'){ sc.scrollTop=0; }
+}
+(function(){
+  let t=null;
+  window.addEventListener('resize',()=>{ clearTimeout(t); t=setTimeout(fitAllPapers,120); });
+})();
+
 function renderPreview(scroll){
   $('emptyPreview').classList.add('hidden');
   $('paper').classList.remove('hidden');
   $('paper').innerHTML=buildInvoiceHTML($('copyToggle').checked);
+  fitPaper('paperScroll');
   if(scroll) $('paperScroll').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
@@ -1971,6 +2034,7 @@ function renderTaxPreview(scroll){
   $('tEmptyPreview').classList.add('hidden');
   $('tpaper').classList.remove('hidden');
   $('tpaper').innerHTML=buildTaxInvoiceHTML($('tcopyToggle').checked);
+  fitPaper('tpaperScroll');
   if(scroll) $('tpaperScroll').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function validateTax(){
@@ -2495,7 +2559,7 @@ function buildQuotationHTML(isCopy){
     <div class="slot"><div class="nm">ในนาม ${esc(sellerName)}</div><div class="two"><div><div class="ln"></div>ผู้เสนอราคา</div><div><div class="ln"></div>วันที่</div></div></div>
   </div>`;
 }
-function renderQPreview(scroll){ $('qEmptyPreview').classList.add('hidden'); $('qpaper').classList.remove('hidden'); $('qpaper').innerHTML=buildQuotationHTML($('qcopyToggle').checked); if(scroll) $('qpaperScroll').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function renderQPreview(scroll){ $('qEmptyPreview').classList.add('hidden'); $('qpaper').classList.remove('hidden'); $('qpaper').innerHTML=buildQuotationHTML($('qcopyToggle').checked); fitPaper('qpaperScroll'); if(scroll) $('qpaperScroll').scrollIntoView({behavior:'smooth',block:'nearest'}); }
 function validateQ(){ const e=[]; if(!val('qcustName').trim()) e.push('กรุณาเลือกลูกค้า'); if(!val('qdocNo').trim()) e.push('กรุณากรอกเลขที่'); if(!val('qdocDate')) e.push('กรุณาเลือกวันที่'); const {sub}=calcQ(); if(sub<=0) e.push('กรุณาเพิ่มรายการ'); return e; }
 function setQStatus(m,t){ const el=$('qFormStatus'); el.className='status show '+(t||''); el.innerHTML=m; }
 function onQVendorSelect(){
@@ -2570,19 +2634,23 @@ const WHT_PND=['ภ.ง.ด.1ก','ภ.ง.ด.1ก พิเศษ','ภ.ง.�
 
 function addWhtItem(typeId='t5srv', date='', amount='', rate='', tax=''){
   const t=WHT_TYPES.find(x=>x.id===typeId)||WHT_TYPES[15];
-  const tr=document.createElement('tr');
-  tr.innerHTML=`
-    <td style="text-align:center;color:#9aa0aa" class="wrownum"></td>
-    <td><select class="wi-type">${(()=>{let h='',g='';WHT_TYPES.forEach(x=>{if(x.grp!==g){if(g)h+='</optgroup>';h+=`<optgroup label="${esc(x.grp)}">`;g=x.grp;}h+=`<option value="${x.id}" ${x.id===typeId?'selected':''}>${esc(x.label)}</option>`;});return h+'</optgroup>';})()}</select>
-        <input class="wi-desc" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)" style="margin-top:4px"></td>
-    <td><input class="wi-date" type="date" value="${date||''}"></td>
-    <td><input class="wi-amt amt" type="number" step="0.01" value="${amount}" placeholder="0.00" style="text-align:right"></td>
-    <td><input class="wi-rate" type="number" step="0.01" value="${rate!==''?rate:(t.rate===''?'':t.rate)}" style="text-align:right"></td>
-    <td><input class="wi-tax amt" type="number" step="0.01" value="${tax}" placeholder="0.00" style="text-align:right"></td>
-    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncWhtTotals()">×</button></td>`;
-  $('witemsBody').appendChild(tr);
-  const sel=tr.querySelector('.wi-type');
-  const amtI=tr.querySelector('.wi-amt'), rateI=tr.querySelector('.wi-rate'), taxI=tr.querySelector('.wi-tax');
+  const row=document.createElement('div');
+  row.className='witem';
+  row.innerHTML=`
+    <div class="wi-head"><span class="wrownum"></span>
+      <button class="icon-btn" title="ลบรายการนี้" onclick="this.closest('.witem').remove();syncWhtTotals()">×</button></div>
+    <label class="wi-lb">ประเภทเงินได้</label>
+    <select class="wi-type">${(()=>{let h='',g='';WHT_TYPES.forEach(x=>{if(x.grp!==g){if(g)h+='</optgroup>';h+=`<optgroup label="${esc(x.grp)}">`;g=x.grp;}h+=`<option value="${x.id}" ${x.id===typeId?'selected':''}>${esc(x.label)}</option>`;});return h+'</optgroup>';})()}</select>
+    <input class="wi-desc" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี) — จะไปขึ้นในช่อง (ระบุ) ของแบบฟอร์ม">
+    <div class="wi-grid">
+      <div><label class="wi-lb">วันที่จ่าย</label><input class="wi-date" type="date" value="${date||''}"></div>
+      <div><label class="wi-lb">จำนวนเงินที่จ่าย</label><input class="wi-amt amt" type="number" step="0.01" value="${amount}" placeholder="0.00"></div>
+      <div><label class="wi-lb">อัตรา %</label><input class="wi-rate" type="number" step="0.01" value="${rate!==''?rate:(t.rate===''?'':t.rate)}"></div>
+      <div><label class="wi-lb">ภาษีที่หัก</label><input class="wi-tax amt" type="number" step="0.01" value="${tax}" placeholder="0.00"></div>
+    </div>`;
+  $('witemsBody').appendChild(row);
+  const sel=row.querySelector('.wi-type');
+  const amtI=row.querySelector('.wi-amt'), rateI=row.querySelector('.wi-rate'), taxI=row.querySelector('.wi-tax');
   const recalc=()=>{ // ภาษี = จำนวนเงิน x % (ถ้าผู้ใช้ยังไม่พิมพ์ภาษีเอง)
     const a=Number(amtI.value)||0, r=Number(rateI.value)||0;
     if(taxI.dataset.manual!=='1') taxI.value = r? (Math.round(a*r)/100).toFixed(2) : '';
@@ -2593,13 +2661,13 @@ function addWhtItem(typeId='t5srv', date='', amount='', rate='', tax=''){
   amtI.addEventListener('input',recalc);
   rateI.addEventListener('input',()=>{ taxI.dataset.manual=''; recalc(); });
   taxI.addEventListener('input',()=>{ taxI.dataset.manual='1'; syncWhtTotals(); });
-  tr.querySelector('.wi-desc').addEventListener('input',syncWhtTotals);
-  tr.querySelector('.wi-date').addEventListener('input',syncWhtTotals);
-  growAll(tr);
+  row.querySelector('.wi-desc').addEventListener('input',syncWhtTotals);
+  row.querySelector('.wi-date').addEventListener('input',syncWhtTotals);
+  growAll(row);
   recalc();
 }
 function getWhtItems(){
-  return [...document.querySelectorAll('#witemsBody tr')].map(tr=>{
+  return [...document.querySelectorAll('#witemsBody .witem')].map(tr=>{
     const typeId=tr.querySelector('.wi-type').value;
     const t=WHT_TYPES.find(x=>x.id===typeId)||{row:'6',label:''};
     return { typeId, row:t.row, typeLabel:t.label, sub:t.sub||'',
@@ -2617,7 +2685,7 @@ function calcWht(){
   return {items,totalPaid,totalTax};
 }
 function syncWhtTotals(){
-  document.querySelectorAll('#witemsBody tr').forEach((tr,i)=>tr.querySelector('.wrownum').textContent=i+1);
+  document.querySelectorAll('#witemsBody .witem').forEach((el,i)=>el.querySelector('.wrownum').textContent='รายการที่ '+(i+1));
   const {totalPaid,totalTax}=calcWht();
   $('wtotSummary').innerHTML=`
     <div class="line"><span>รวมเงินที่จ่าย</span><b>${fmt(totalPaid)}</b></div>
@@ -2685,6 +2753,8 @@ async function buildWhtPdfBytes(){
   doc.catalog.delete(PDFName.of('AcroForm'));
   page.node.set(PDFName.of('Annots'), doc.context.obj([]));
 
+  // สีหมึกของข้อมูลที่กรอก — น้ำเงินเข้ม แยกจากตัวฟอร์มที่เป็นสีดำ เหมือนกรอกด้วยปากกาน้ำเงิน
+  const INK=rgb(0.05,0.21,0.60);
   const fit=(t,max,size)=>{ let s=size; while(s>5 && font.widthOfTextAtSize(t,s)>max) s-=0.25; return s; };
   const put=(name,text,o={})=>{
     const r=R[name]; if(!r||text===undefined||text===null||text==='') return;
@@ -2693,19 +2763,19 @@ async function buildWhtPdfBytes(){
     let x=r.x+pad;
     if(o.align==='right') x=r.x+r.width-pad-w;
     else if(o.align==='center') x=r.x+(r.width-w)/2;
-    page.drawText(t,{x,y:r.y+(r.height-s)/2+s*0.22,size:s,font,color:rgb(0,0,0)});
+    page.drawText(t,{x,y:r.y+(r.height-s)/2+s*0.22,size:s,font,color:INK});
   };
   const comb=(name,text,maxLen)=>{
     const r=R[name]; if(!r||!text) return;
     const cw=r.width/maxLen, s=Math.min(9.5,cw*1.15);
     [...String(text)].slice(0,maxLen).forEach((ch,i)=>{
       const w=font.widthOfTextAtSize(ch,s);
-      page.drawText(ch,{x:r.x+cw*i+(cw-w)/2,y:r.y+(r.height-s)/2+s*0.22,size:s,font,color:rgb(0,0,0)});
+      page.drawText(ch,{x:r.x+cw*i+(cw-w)/2,y:r.y+(r.height-s)/2+s*0.22,size:s,font,color:INK});
     });
   };
   const tick=(name)=>{
     const r=R[name]; if(!r) return;
-    const p=2.2,c=rgb(0,0,0),t=1.1;
+    const p=2.2,c=INK,t=1.3;
     page.drawLine({start:{x:r.x+p,y:r.y+p},end:{x:r.x+r.width-p,y:r.y+r.height-p},thickness:t,color:c});
     page.drawLine({start:{x:r.x+p,y:r.y+r.height-p},end:{x:r.x+r.width-p,y:r.y+p},thickness:t,color:c});
   };
@@ -2786,7 +2856,7 @@ async function renderWhtPreviewNow(scroll){
     whtBlobUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
     $('wEmptyPreview').classList.add('hidden');
     fr.classList.remove('hidden');
-    fr.src=whtBlobUrl+'#toolbar=0&view=FitH';
+    fr.src=whtBlobUrl+'#toolbar=0&navpanes=0&view=Fit';
     if(note) note.innerHTML='ตัวอย่างนี้คือไฟล์ PDF จริงที่จะได้ (แบบฟอร์มกรมสรรพากรตัวจริง) · ถ้าตัวอย่างไม่ขึ้น ให้กด "เปิดในแท็บใหม่"';
     if(scroll) $('wpaperScroll').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(e){
@@ -2975,6 +3045,8 @@ function showTab(t){
   if(t==='quotation') renderQPreview(false);
   if(t==='admin') loadAdminUsers();
   if(t==='reports') loadReports();
+  if(t==='create') fitPaper('paperScroll');
+  requestAnimationFrame(fitAllPapers);
 }
 
 /* ---------- settings (seller/company) ---------- */
@@ -3212,6 +3284,8 @@ window.WHT_FONT_B64="AAEAAAAOAIAAAwBgR0RFRhKJEucAAJpYAAAAnkdQT1N7DlCeAACa+AAAHFZ
   var SKIP='.paper,#langTog,[data-noi18n],script,style,noscript';
 
   var DICT={
+    // preview zoom
+    'พอดีหน้า':'Fit page',
     // login gate + brand
     'ระบบสร้างใบแจ้งหนี้':'Invoice & Tax System',
     'เข้าสู่ระบบเพื่อใช้งาน':'Sign in to continue',
@@ -3391,7 +3465,27 @@ window.WHT_FONT_B64="AAEAAAAOAIAAAwBgR0RFRhKJEucAAJpYAAAAnkdQT1N7DlCeAACa+AAAHFZ
     'วันที่จ่าย':'Payment date',
     'จำนวนเงิน':'Amount',
     'แสดงฉบับที่ 2':'Show copy 2',
-    'Slack Webhook URL (แจ้งเตือนเมื่อออกเอกสาร — เว้นว่าง = ปิดแจ้งเตือน)':'Slack Webhook URL (document alerts — blank = off)'
+    'Slack Webhook URL (แจ้งเตือนเมื่อออกเอกสาร — เว้นว่าง = ปิดแจ้งเตือน)':'Slack Webhook URL (document alerts — blank = off)',
+    // WHT item cards
+    'เอกสาร':'Document',
+    '💾 จำไว้':'💾 Remember',
+    'จำชื่อนี้ไว้ใช้ครั้งหน้า':'Remember this name for next time',
+    'ประเภทเงินได้':'Type of income',
+    'วันที่จ่าย':'Payment date',
+    'จำนวนเงินที่จ่าย':'Amount paid',
+    'อัตรา %':'Rate %',
+    'ภาษีที่หัก':'Tax withheld',
+    'ลบรายการนี้':'Remove this item',
+    'รายละเอียดเพิ่มเติม (ถ้ามี) — จะไปขึ้นในช่อง (ระบุ) ของแบบฟอร์ม':'Extra detail (optional) — printed in the form\'s "specify" blank',
+    'ภาษีที่หัก = จำนวนเงิน × % (แก้ตัวเลขเองได้ถ้าต้องปัดเศษ)':'Tax withheld = Amount × % (editable if you need to round)',
+    'รวมเงินที่จ่าย':'Total amount paid',
+    'รวมภาษีที่หักและนำส่ง':'Total tax withheld & remitted',
+    'ระบบเติมข้อมูลลงในไฟล์ PDF แบบฟอร์มจริงของกรมสรรพากร — เอกสารที่ได้จึงเหมือนต้นฉบับทุกจุด':
+      'Data is filled into the Revenue Department\'s actual PDF form — the output matches the official form exactly',
+    'ตัวอย่างนี้คือไฟล์ PDF จริงที่จะได้ (แบบฟอร์มกรมสรรพากรตัวจริง) · ถ้าตัวอย่างไม่ขึ้น ให้กด "เปิดในแท็บใหม่"':
+      'This preview is the actual PDF you will get (the official RD form) · if it does not render, use "Open in new tab"',
+    'พิมพ์ 2 หน้า (ฉบับที่ 1 + 2)':'Print 2 pages (copies 1 + 2)',
+    'เปิดในแท็บใหม่':'Open in new tab'
   };
 
   // status words (used inside option / .spill / .chip / .fpill)
@@ -3409,6 +3503,7 @@ window.WHT_FONT_B64="AAEAAAAOAIAAAwBgR0RFRhKJEucAAJpYAAAAnkdQT1N7DlCeAACa+AAAHFZ
     [/กำลังโหลดข้อมูล\.\.\./g,'Loading data...'],
     [/กำลังโหลด\.\.\./g,'Loading...'],
     [/ยอดขายรายเดือน \(12 เดือนล่าสุด · ไม่รวมยกเลิก\)/g,'Monthly sales (last 12 months · excl. cancelled)'],
+    [/รายการที่ (\d+)/g,'Item $1'],
     [/ลูกค้ารายนี้ยังไม่มี Invoice/g,'This client has no invoice yet'],
     [/ดึงรายการจาก/g,'Loaded items from'],
     [/ออกใบเสร็จแล้ว/g,'receipt issued'],
