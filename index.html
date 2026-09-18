@@ -80,6 +80,20 @@
   .paper-scroll{overflow:auto;background:#e9ebef;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;justify-content:center;align-items:flex-start;flex:1 1 auto;min-height:340px}
   .paper{background:#fff;width:760px;min-height:1075px;padding:46px 48px;box-shadow:0 2px 12px rgba(0,0,0,.12);color:#222;font-size:13px;position:relative;overflow:hidden;display:flex;flex-direction:column}
   /* ย่อ/ขยายตัวอย่างให้พอดี 1 หน้า โดยไม่ต้องเลื่อนดู */
+  /* การ์ดรายการสินค้า/บริการ — Description เต็มความกว้างด้านบน */
+  .items.itemcards{border-collapse:separate;border-spacing:0 10px}
+  .items.itemcards td{padding:0;border:none}
+  .icard{border:1px solid var(--line);border-radius:12px;padding:12px 13px 13px;background:#fcfcff}
+  .icard:focus-within{border-color:var(--brand);background:#fff}
+  .ic-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .ic-head .rownum{font-size:11px;font-weight:700;color:var(--brand);background:var(--soft);padding:2px 9px;border-radius:20px}
+  .ic-head .icon-btn{margin-left:auto}
+  .ic-lb{display:block;font-size:11px;color:var(--muted);font-weight:600;margin:0 0 3px}
+  .icard textarea{width:100%;min-height:78px;resize:vertical;line-height:1.5}
+  .ic-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:10px}
+  .ic-grid input{width:100%}
+  .ic-amt{padding:8px 10px;border:1px dashed var(--line);border-radius:9px;background:#f6f7fb;text-align:right;font-weight:700;color:var(--ink);font-size:13px}
+  @media(max-width:1180px){ .ic-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   .paper-stage{flex:none;position:relative;width:760px;height:1075px}
   .paper-stage>.paper{position:absolute;top:0;left:0;transform-origin:top left;transform:scale(var(--pscale,1))}
   .paper-stage:has(>.paper.hidden){display:none}
@@ -236,7 +250,15 @@
   .statsec{border:1px solid var(--line);border-radius:12px;margin-top:14px;overflow:hidden}
   .statsec .sh{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fafbff;border-bottom:1px solid var(--line)}
   .statsec .sh .ttl{font-weight:700}
-  .statsec .sh .sum{margin-left:auto;font-weight:700;color:var(--ink)}
+  .statsec .sh .sum{margin-left:auto;font-weight:700;color:var(--ink);text-align:right;line-height:1.35}
+  .statsec .sh .sum small{display:block;font-size:10.5px;font-weight:600;color:var(--muted)}
+  .statsec .sh .cpills{display:flex;flex-wrap:wrap;gap:5px}
+  .cpill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .htable td.subj{white-space:normal;word-break:break-word}
+  .htable td.subj .dl{margin-bottom:2px}
+  .htable tr.hl>td{background:#fff5cc!important}
+  .htable tr.hl{animation:hlfade 2.4s ease-out}
+  @keyframes hlfade{0%{background:#ffe9a3}100%{background:#fff5cc}}
   /* Vendor */
   .vlogo{width:38px;height:38px;border-radius:9px;object-fit:contain;border:1px solid var(--line);background:#fff}
   .modal-overlay{position:fixed;inset:0;background:rgba(20,25,50,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
@@ -442,8 +464,7 @@
       </div>
 
       <div class="section-title">รายการ / Items</div>
-      <table class="items titems" style="width:100%">
-        <thead><tr><th style="width:26px">#</th><th>รายละเอียด</th><th style="width:50px">จำนวน</th><th style="width:56px">หน่วย</th><th style="width:84px">ราคา/หน่วย</th><th style="width:28px"></th></tr></thead>
+      <table class="items itemcards" style="width:100%">
         <tbody id="itemsBody"></tbody>
       </table>
       <button class="btn add" onclick="addItem()">+ เพิ่มรายการ</button>
@@ -506,8 +527,7 @@
       </div>
 
       <div class="section-title">Items</div>
-      <table class="items titems" style="width:100%">
-        <thead><tr><th style="width:26px">#</th><th>รายละเอียด</th><th style="width:50px">จำนวน</th><th style="width:56px">หน่วย</th><th style="width:84px">ราคา/หน่วย</th><th style="width:28px"></th></tr></thead>
+      <table class="items itemcards" style="width:100%">
         <tbody id="qitemsBody"></tbody>
       </table>
       <button class="btn add" onclick="addQItem()">+ เพิ่มรายการ</button>
@@ -962,8 +982,8 @@
    VERSION — แก้ที่นี่ที่เดียวทุกครั้งที่ปล่อยเวอร์ชันใหม่
    แล้วอย่าลืมเพิ่ม Release Note ใน README.md ให้ตรงกัน
    ============================================================ */
-const APP_VERSION = "1.2.2";
-const APP_VERSION_DATE = "2026-09-15";
+const APP_VERSION = "1.3.0";
+const APP_VERSION_DATE = "2026-09-18";
 
 const CONFIG = {
   SCRIPT_URL: "",  // <-- เช่น "https://script.google.com/macros/s/AKfy...../exec"
@@ -1080,17 +1100,34 @@ function bahtText(num){
 
 /* ---------- items ---------- */
 let itemSeq=0;
+function itemCardHTML(pfx, detail, qty, unit, price, onRemove){
+  return `<td><div class="icard">
+    <div class="ic-head"><span class="${pfx}rownum rownum"></span>
+      <button class="icon-btn" onclick="this.closest('tr').remove();${onRemove}()">×</button></div>
+    <label class="ic-lb">รายละเอียด / Description</label>
+    <textarea class="${pfx}detail" rows="3" placeholder="รายละเอียดสินค้าหรือบริการ">${esc(detail)}</textarea>
+    <div class="ic-grid">
+      <div><label class="ic-lb">จำนวน</label><input class="${pfx}qty" type="number" step="1" min="0" value="${qty}" style="text-align:right"></div>
+      <div><label class="ic-lb">หน่วย</label><input class="${pfx}unit" value="${esc(unit)}" placeholder="เช่น ชิ้น"></div>
+      <div><label class="ic-lb">ราคา/หน่วย</label><input class="${pfx}price amt" type="number" step="0.01" value="${price}" placeholder="0.00" style="text-align:right"></div>
+      <div><label class="ic-lb">ยอดรวม</label><div class="ic-amt linetot">0.00</div></div>
+    </div></div></td>`;
+}
+/* เลขลำดับ + ยอดรวมต่อบรรทัด */
+function paintRows(sel, qs, ps){
+  document.querySelectorAll(sel).forEach((tr,i)=>{
+    const rn=tr.querySelector('.rownum'); if(rn) rn.textContent='รายการที่ '+(i+1);
+    const lt=tr.querySelector('.linetot');
+    if(lt){ const q=Number(tr.querySelector(qs).value)||0, p=Number(tr.querySelector(ps).value)||0;
+            lt.textContent=fmt(Math.round(q*p*100)/100); }
+  });
+}
 function addItem(detail='',qty=1,unit='',price=''){
   itemSeq++;
   const tr=document.createElement('tr'); tr.dataset.id=itemSeq;
-  tr.innerHTML=`
-    <td style="text-align:center;color:#9aa0aa" class="rownum"></td>
-    <td><textarea class="it-detail" rows="2" oninput="syncTotals()" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
-    <td><input class="it-qty" type="number" step="1" min="0" value="${qty}" oninput="syncTotals()" style="text-align:right"></td>
-    <td><input class="it-unit" value="${esc(unit)}" oninput="syncTotals()" placeholder="หน่วย"></td>
-    <td><input class="it-price amt" type="number" step="0.01" value="${price}" oninput="syncTotals()" placeholder="0.00" style="text-align:right"></td>
-    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncTotals()">×</button></td>`;
+  tr.innerHTML=itemCardHTML('it-', detail, qty, unit, price, 'syncTotals');
   $('itemsBody').appendChild(tr);
+  tr.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',syncTotals));
   growAll(tr);
   syncTotals();
 }
@@ -1109,7 +1146,7 @@ function calc(){
   return {items,sub,vat,net};
 }
 function syncTotals(){
-  document.querySelectorAll('#itemsBody tr').forEach((tr,i)=>tr.querySelector('.rownum').textContent=i+1);
+  paintRows('#itemsBody tr','.it-qty','.it-price');
   const {sub,vat,net}=calc();
   $('totSummary').innerHTML=`
     <div class="line"><span>รวมเงิน / Total</span><b>${fmt(sub)}</b></div>
@@ -1310,7 +1347,7 @@ async function generatePDF(){
     pdf.save(fname);
 
     // save to history (Drive backend or localStorage)
-    const firstDetail=(getItems()[0]?.detail||'').split('\n')[0].slice(0,60);
+    const _its=getItems(); const firstDetail=((_its[0]?.detail||'').split('\n')[0].slice(0,160))+(_its.length>1?` และอีก ${_its.length-1} รายการ`:'');
     const meta={
       no:$('docNo').value, customer:$('custName').value, date:$('docDate').value,
       net:net, createdAt:new Date().toISOString(), filename:fname,
@@ -1446,15 +1483,35 @@ function dlLink(it){
 }
 function isTestClient(name){ return /test|ทดสอบ/i.test(name||''); } // บริษัททดสอบ ไม่นับในแดชบอร์ด
 // เซ็ตของ Invoice ที่ถูกอ้างอิงโดยใบกำกับภาษี (เพื่อ de-dup ไม่ให้นับซ้ำ — บิลเดียวกัน)
-function taxRefSet(){ const s=new Set(); histData.forEach(t=>{ if(t.docType==='tax'){ if(t.sourceInvoiceId) s.add(String(t.sourceInvoiceId)); if(t.sourceInvoiceNo) s.add(String(t.sourceInvoiceNo)); } }); return s; }
+/* เก็บเฉพาะใบเสร็จที่ "ยังใช้งานอยู่" — ใบเสร็จที่ยกเลิกแล้วไม่แทนที่ Invoice */
+function taxRefSet(){
+  const s=new Set();
+  histData.forEach(t=>{
+    if(t.docType!=='tax' || t.status==='cancelled') return;
+    if(t.sourceInvoiceId) s.add(String(t.sourceInvoiceId));
+    if(t.sourceInvoiceNo) s.add(String(t.sourceInvoiceNo));
+  });
+  return s;
+}
+/* ใบเสร็จที่ยังใช้งานอยู่ซึ่งออกจาก Invoice ใบนี้ (คืน object หรือ null)
+   เช็ค 2 ทาง: ลิงก์ที่เก็บบน Invoice + การอ้างอิงที่เก็บบนใบเสร็จ
+   — ถ้าเช็คแค่ทางเดียวแล้วใบที่ลิงก์ไว้ถูกยกเลิก จะมองไม่เห็นใบเสร็จตัวจริง ทำให้ยอดนับซ้ำ */
+function liveReceiptOf(it){
+  if(it.docType==='tax'||it.docType==='qt'||it.docType==='wht') return null;
+  const id=String(it.id||'\u0001'), no=String(it.no||'\u0001');
+  let r=null;
+  if(it.taxInvoiceId){
+    const tx=histData.find(x=>String(x.id||x.no)===String(it.taxInvoiceId));
+    if(tx && tx.status!=='cancelled') r=tx;
+  }
+  if(!r) r=histData.find(t=>t.docType==='tax' && t.status!=='cancelled'
+        && (String(t.sourceInvoiceId||'')===id || String(t.sourceInvoiceNo||'')===no)) || null;
+  return r;
+}
 function isSupersededInv(it,s){
   if(it.docType==='tax'||it.docType==='qt'||it.docType==='wht') return false;
-  if(it.taxInvoiceId){
-    const tx=histData.find(x=>(x.id||x.no)===it.taxInvoiceId);
-    // ใบเสร็จที่ผูกไว้ถูกยกเลิก -> Invoice ใบนี้กลับมานับเป็นลูกหนี้ตามเดิม
-    if(tx) return tx.status!=='cancelled';
-  }
-  return s.has(String(it.id||'\u0001')) || s.has(String(it.no||'\u0001'));
+  if(s && (s.has(String(it.id||'\u0001')) || s.has(String(it.no||'\u0001')))) return true;
+  return !!liveReceiptOf(it);
 }
 function groupByClient(){
   const map={};
@@ -1463,6 +1520,7 @@ function groupByClient(){
     if(it.docType==='qt') return; // ใบเสนอราคาไม่นับในแดชบอร์ดลูกค้า
     if(it.docType==='wht') return; // ใบหัก ณ ที่จ่าย ไม่ใช่ยอดขาย (คนละภาษี คนละคู่สัญญา)
     if(it.status==='cancelled') return; // ไม่นับใบที่ยกเลิกในแดชบอร์ด
+    if(it.status==='draft') return;     // ร่าง = ยังไม่ออกจริง ไม่นับเป็นยอด (ให้ตรงกับ KPI และ AR Aging)
     if(isSupersededInv(it,trs)) return; // Invoice ที่ออกใบกำกับภาษีแล้ว ไม่นับซ้ำ (นับเฉพาะใบกำกับภาษี)
     const key=(it.customer||'ไม่ระบุลูกค้า').trim()||'ไม่ระบุลูกค้า';
     if(isTestClient(key)) return; // ไม่นับบริษัททดสอบ
@@ -1555,7 +1613,7 @@ function renderDashClients(){
     return cards?`<div class="dash-sec-title">${title}</div><div class="dash-grid" style="margin-bottom:18px">${cards}</div>`:'';
   };
   $('dashClients').style.display='block';
-  $('dashClients').innerHTML=section('ยังไม่ชำระ / Unpaid',['open','overdue','draft'])+section('ชำระแล้ว / Paid',['paid']);
+  $('dashClients').innerHTML=section('ยังไม่ชำระ / Unpaid',['open','overdue'])+section('ชำระแล้ว / Paid',['paid']);
   renderDashChart();
 }
 /* ---------- AR Aging: ลูกหนี้ค้างนานแค่ไหน ----------
@@ -1644,6 +1702,9 @@ function openClient(idx){
   $('dashChart').innerHTML='';
   const _ag=$('dashAging'); if(_ag) _ag.innerHTML='';
   const initial=(g.name).replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
+  // นับยอดที่ซ้ำกันในลูกค้ารายนี้ ไว้ติดป้ายเตือน (กันเคสออกเอกสารซ้ำโดยไม่ได้ผูกกัน)
+  const dupAmt={};
+  g.items.forEach(i=>{ const k=Math.round((Number(i.net)||0)*100); if(k) dupAmt[k]=(dupAmt[k]||0)+1; });
   let sections='';
   STATUS_ORDER.forEach(s=>{
     const items=g.items.filter(it=>it.status===s);
@@ -1654,10 +1715,18 @@ function openClient(idx){
       // ออกใบเสร็จได้จาก Invoice ทุกสถานะ (ไม่ใช่เฉพาะค้างชำระ)
       const isInv = it.docType!=='tax' && it.docType!=='qt';
       const taxBtn = (isInv && perm().create) ? `<button class="btn" style="padding:4px 10px;font-size:11px;background:#88C326;border-color:#88C326;box-shadow:none;margin-right:8px" onclick="event.stopPropagation();goCreateTaxFromInvoice('${esc(it.id||it.no)}')">→ ออกใบเสร็จ</button>` : '';
+      // แถวนี้เป็นใบเสร็จที่ออกจาก Invoice ใบไหน -> โชว์เลข Invoice เป็นหลัก ใบเสร็จเป็นบรรทัดรอง
+      const srcNo = (it.docType==='tax') ? (it.sourceInvoiceNo||'') : '';
+      const mainNo = srcNo || it.no || '-';
+      const subNo = srcNo
+        ? `<div style="font-size:10.5px;color:#5f8f18;margin-top:3px">🧾 ${esc(it.no||'')}</div>`
+        : (it.docType==='tax' ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px">ใบเสร็จไม่ได้อ้างอิง Invoice</div>` : '');
+      const dupMark = dupAmt[Math.round((Number(it.net)||0)*100)]>1
+        ? `<div style="font-size:10.5px;color:#b45309;margin-top:3px" title="มีเอกสารยอดเท่ากันมากกว่า 1 ใบในลูกค้ารายนี้ — ตรวจว่าซ้ำหรือไม่">⚠ ยอดซ้ำกับอีกใบ</div>` : '';
       return `<tr>
-      <td><span class="badge">${esc(it.no||'-')}</span></td>
+      <td><span class="badge">${esc(mainNo)}</span>${subNo}${dupMark}</td>
       <td>${esc(fmtDate(it.date))}</td>
-      <td class="subj">${esc(it.subject||'-')}</td>
+      <td class="subj">${docDescHTML(it)}</td>
       <td style="text-align:right;font-weight:600">${fmt(it.net)}</td>
       <td style="text-align:right;white-space:nowrap">${taxBtn}${dlLink(it)}</td></tr>`;
     }).join('');
@@ -1693,9 +1762,33 @@ const DOC_SECTIONS=[
 ];
 function docTypeOf(it){ const d=it&&it.docType; return (d==='tax'||d==='qt'||d==='wht')?d:'inv'; }
 
+/* รายละเอียดเอกสาร — ดึงจากรายการจริงทั้งหมด ไม่ใช่ subject ที่ถูกตัด 60 ตัวอักษร */
+function docDescHTML(it){
+  const ds=(it.items||[]).map(x=>String(x.detail||x.typeLabel||'').trim()).filter(Boolean);
+  const line=t=>esc(t).replace(/\n/g,'<br>');
+  if(ds.length>1) return ds.map((d,i)=>`<div class="dl">${i+1}. ${line(d)}</div>`).join('');
+  if(ds.length===1) return `<div class="dl">${line(ds[0])}</div>`;
+  return line(it.subject||'-');
+}
+/* กระโดดไปยังเอกสารอีกใบในหน้าประวัติ (เช่น ใบเสร็จที่ผูกกับ Invoice) */
+function jumpToDoc(key){
+  const k=String(key);
+  if(!histData.some(x=>String(x.id||x.no)===k)){ alert('ไม่พบเอกสารนี้ในระบบ'); return; }
+  if($('histSearch')) $('histSearch').value='';
+  if($('histFrom')) $('histFrom').value='';
+  if($('histTo')) $('histTo').value='';
+  if($('histType')) $('histType').value='all';
+  setFilter('all');
+  const row=[...document.querySelectorAll('#histSections tr')].find(r=>r.dataset.key===k);
+  if(!row){ alert('ไม่พบเอกสารนี้ในรายการที่แสดงอยู่'); return; }
+  row.scrollIntoView({behavior:'smooth',block:'center'});
+  document.querySelectorAll('#histSections tr.hl').forEach(r=>r.classList.remove('hl'));
+  row.classList.add('hl');
+  setTimeout(()=>row.classList.remove('hl'),2600);
+}
 function histRowHTML(it, idx, dt){
   const initial=(it.customer||'?').replace(/^บริษัท\s*/,'').trim().charAt(0).toUpperCase()||'?';
-  let dl='—';
+  let dl='<span style="color:#c7cbd6">—</span>';
   if(it.downloadUrl) dl=`<a class="link" href="${it.downloadUrl}" target="_blank">⬇ ดาวน์โหลด</a>`;
   else if(it.webViewLink) dl=`<a class="link" href="${it.webViewLink}" target="_blank">⬇ เปิด</a>`;
   else if(it._localPdf) dl=`<a class="link" href="${it._localPdf}" download="${it.filename||'document.pdf'}">⬇ ดาวน์โหลด</a>`;
@@ -1704,9 +1797,9 @@ function histRowHTML(it, idx, dt){
   if(it.taxInvoiceId){
     const tx=histData.find(x=>(x.id||x.no)===it.taxInvoiceId);
     const turl=tx?(tx.downloadUrl||tx.webViewLink||tx._localPdf):'';
-    taxLink= turl
-      ? `<br><a class="link" href="${turl}" target="_blank" style="color:#5f8f18">🧾 ใบเสร็จ ${esc(it.taxInvoiceNo||'')}</a>`
-      : `<br><span class="badge" style="background:#eef7d9;color:#5f8f18">🧾 ${esc(it.taxInvoiceNo||'ออกแล้ว')}</span>`;
+    const tkey=esc(String(it.taxInvoiceId));
+    taxLink= `<br><a class="link" style="color:#5f8f18;font-size:11.5px" title="ไปที่ใบเสร็จนี้ในหน้าประวัติ" onclick="jumpToDoc('${tkey}')">🧾 ${esc(it.taxInvoiceNo||'ใบเสร็จ')}</a>`
+           + (turl?` <a class="link" href="${turl}" target="_blank" title="เปิดไฟล์ PDF" style="color:#5f8f18">⬇</a>`:'');
   }
   const p=perm();
   const actions=[
@@ -1725,7 +1818,7 @@ function histRowHTML(it, idx, dt){
     <td>${esc(fmtDate(it.date))}</td>
     <td style="text-align:right;font-weight:600">${fmt(amtLabel)}</td>
     <td>${statusSelectHTML(idx, it.status, dt)}</td>
-    <td class="subj">${esc(it.subject||'-')}${it.createdBy?`<br><span style="font-size:10px;color:var(--muted)">โดย ${esc(it.createdBy)}</span>`:''}${cancelNote}</td>
+    <td class="subj">${docDescHTML(it)}${it.createdBy?`<br><span style="font-size:10px;color:var(--muted)">โดย ${esc(it.createdBy)}</span>`:''}${cancelNote}</td>
     <td style="text-align:right;white-space:nowrap">${actions}</td>`;
 }
 
@@ -1751,11 +1844,18 @@ function renderHist(){
                     .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     if(items.length===0) return;
     shown+=items.length;
-    const sum=items.reduce((a,i)=>a+(sec.key==='wht'?(Number(i.whtTotalTax)||Number(i.net)||0):(Number(i.net)||0)),0);
+    const amtOf=i=>sec.key==='wht'?(Number(i.whtTotalTax)||Number(i.net)||0):(Number(i.net)||0);
+    const live=items.filter(i=>i.status!=='cancelled');          // ยอดรวมไม่นับใบที่ยกเลิก
+    const sum=live.reduce((a,i)=>a+amtOf(i),0);
+    const cxItems=items.filter(i=>i.status==='cancelled');
+    const cxSum=cxItems.reduce((a,i)=>a+amtOf(i),0);
+    const st={}; items.forEach(i=>{ st[i.status]=(st[i.status]||0)+1; });
+    const pills=STATUS_ORDER.filter(k=>st[k]).map(k=>
+      `<span class="cpill ${STATUS_META[k].cls}">${esc(STATUS_META[k].label)} ${st[k]}</span>`).join('');
     const amtHead = sec.key==='wht' ? 'ภาษีที่หัก' : 'ยอดสุทธิ';
     const body=items.map(it=>{
       const idx=histData.indexOf(it);
-      return `<tr>${histRowHTML(it, idx, sec.key)}</tr>`;
+      return `<tr data-key="${esc(String(it.id||it.no))}">${histRowHTML(it, idx, sec.key)}</tr>`;
     }).join('');
     const div=document.createElement('div');
     div.className='statsec';
@@ -1765,18 +1865,19 @@ function renderHist(){
         <span style="font-size:15px">${sec.icon}</span>
         <span class="ttl" style="color:${sec.color}">${esc(sec.title)}</span>
         <span class="badge" style="background:#fff;color:${sec.color}">${items.length} ฉบับ</span>
-        <span class="sum">${fmt(sum)} บาท</span>
+        <span class="cpills">${pills}</span>
+        <span class="sum">${fmt(sum)} บาท${cxItems.length?`<small>ไม่รวมที่ยกเลิก ${cxItems.length} ฉบับ (${fmt(cxSum)})</small>`:''}</span>
       </div>
       <div style="overflow-x:auto">
-      <table class="htable" style="margin:0;min-width:900px">
+      <table class="htable" style="margin:0;min-width:1040px;table-layout:fixed">
         <thead><tr>
-          <th style="width:170px">เลขที่</th>
-          <th style="min-width:180px">${sec.key==='wht'?'ผู้ถูกหักภาษี':'ลูกค้า'}</th>
-          <th style="width:110px">วันที่</th>
-          <th style="width:120px;text-align:right">${amtHead}</th>
-          <th style="width:125px">สถานะ</th>
-          <th style="min-width:170px">รายละเอียด</th>
-          <th style="width:150px;text-align:right"></th>
+          <th style="width:150px">เลขที่</th>
+          <th style="width:190px">${sec.key==='wht'?'ผู้ถูกหักภาษี':'ลูกค้า'}</th>
+          <th style="width:92px">วันที่</th>
+          <th style="width:112px;text-align:right">${amtHead}</th>
+          <th style="width:118px">สถานะ</th>
+          <th style="width:auto;min-width:300px">รายละเอียด</th>
+          <th style="width:176px;text-align:right"></th>
         </tr></thead>
         <tbody>${body}</tbody>
       </table></div>`;
@@ -1911,13 +2012,7 @@ let tItemSeq=0;
 function addTaxItem(detail='',qty=1,unit='',price=''){
   tItemSeq++;
   const tr=document.createElement('tr');
-  tr.innerHTML=`
-    <td style="text-align:center;color:#9aa0aa" class="trownum"></td>
-    <td><textarea class="ti-detail" rows="2" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
-    <td><input class="ti-qty" type="number" step="1" min="0" value="${qty}" style="text-align:right"></td>
-    <td><input class="ti-unit" value="${esc(unit)}" placeholder="หน่วย"></td>
-    <td><input class="ti-price amt" type="number" step="0.01" value="${price}" placeholder="0.00" style="text-align:right"></td>
-    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncTaxTotals()">×</button></td>`;
+  tr.innerHTML=itemCardHTML('ti-', detail, qty, unit, price, 'syncTaxTotals');
   $('titemsBody').appendChild(tr);
   tr.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',syncTaxTotals));
   growAll(tr);
@@ -1942,7 +2037,7 @@ function calcTax(){
   return {items,sub,vat,net,whtOn,whtPct,wht,payable};
 }
 function syncTaxTotals(){
-  document.querySelectorAll('#titemsBody tr').forEach((tr,i)=>tr.querySelector('.trownum').textContent=i+1);
+  paintRows('#titemsBody tr','.ti-qty','.ti-price');
   const {sub,vat,net,whtOn,whtPct,wht,payable}=calcTax();
   $('ttotSummary').innerHTML=`
     <div class="line"><span>รวมเป็นเงิน</span><b>${fmt(sub)}</b></div>
@@ -2154,7 +2249,7 @@ async function generateTaxPDF(){
     holder.innerHTML='';
     const fname=((val('tdocNo')||'tax-invoice').replace(/[^\w\-]/g,'_'))+'.pdf';
     pdf.save(fname);
-    const firstDetail=(getTaxItems()[0]?.detail||'').split('\n')[0].slice(0,60);
+    const _its=getTaxItems(); const firstDetail=((_its[0]?.detail||'').split('\n')[0].slice(0,160))+(_its.length>1?` และอีก ${_its.length-1} รายการ`:'');
     const srcId=taxSource?(taxSource.id||taxSource.no):'';
     const meta={ no:val('tdocNo'), customer:val('tcustName'), date:val('tdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'paid', docType:'tax',
       custAddr:val('tcustAddr'), custTax:val('tcustTax'), payMethod:val('tpayMethod'), note:val('tdocNote'),
@@ -2283,6 +2378,7 @@ function genDocNo(type, cid, dateStr){
   if(!prefix) return '';
   let max=0;
   histData.forEach(i=>{
+    if(i.status==='cancelled') return;   // ใบที่ยกเลิกแล้วไม่จองเลข — ออกใหม่ด้วยเลขเดิมได้
     const no=String(i.no||'');
     if(no.indexOf(prefix)===0){
       const n=parseInt(no.slice(prefix.length),10);
@@ -2293,12 +2389,28 @@ function genDocNo(type, cid, dateStr){
 }
 /* เรียกก่อนสร้าง PDF ทุกครั้ง: ดึงข้อมูลล่าสุดมาเช็คว่าเลขนี้ถูกคนอื่นใช้ไปแล้วหรือยัง
    (กันเคส 2 คนเปิดฟอร์มพร้อมกันแล้วได้เลขเดียวกัน) */
+/* หาเอกสารที่ "ยังใช้งานอยู่" ซึ่งใช้เลขนี้ — ใบที่ยกเลิกแล้วไม่นับ */
+function activeDocWithNo(no, excludeId){
+  const n=String(no||'').trim();
+  if(!n) return null;
+  return histData.find(i=> String(i.no||'')===n
+                        && i.status!=='cancelled'
+                        && (!excludeId || String(i.id||i.no)!==String(excludeId))) || null;
+}
 async function ensureUniqueDocNo(type, inputId, cid, dateStr){
   try{ await fetchInvoices(); }catch(e){ return {changed:false, offline:true}; }
   const cur=(val(inputId)||'').trim();
   if(!cur) return {changed:false};
-  if(!histData.some(i=>String(i.no||'')===cur)) return {changed:false};
+  const clash=activeDocWithNo(cur);
+  if(!clash) return {changed:false};          // ไม่ซ้ำ หรือซ้ำกับใบที่ยกเลิกไปแล้ว -> ใช้ได้เลย
   const next=genDocNo(type,cid,dateStr);
+  const info='เลขที่ '+cur+' ซ้ำกับเอกสารที่ยังใช้งานอยู่\n\n'
+           + '  • '+(clash.no||'-')+'  ·  '+(clash.customer||'-')+'\n'
+           + '  • วันที่ '+fmtDate(clash.date)+'  ·  '+fmt(Number(clash.net)||0)+' บาท'
+           + '  ·  '+((STATUS_META[clash.status]||STATUS_META.open).label)+'\n\n'
+           + 'OK = ใช้เลข '+cur+' ต่อ (ยอมให้ซ้ำ)\n'
+           + 'Cancel = เปลี่ยนเป็นเลขถัดไป '+(next||'-');
+  if(confirm(info)) return {changed:false, duplicate:true, clashNo:clash.no};
   if(next && next!==cur){ $(inputId).value=next; return {changed:true, from:cur, to:next}; }
   return {changed:false};
 }
@@ -2500,13 +2612,7 @@ window.seedAdmins = async function(){
 /* ============== QUOTATION (ใบเสนอราคา) ============== */
 function addQItem(detail='',qty=1,unit='',price=''){
   const tr=document.createElement('tr');
-  tr.innerHTML=`
-    <td style="text-align:center;color:#9aa0aa" class="qrownum"></td>
-    <td><textarea class="qi-detail" rows="2" placeholder="รายละเอียด">${esc(detail)}</textarea></td>
-    <td><input class="qi-qty" type="number" step="1" min="0" value="${qty}" style="text-align:right"></td>
-    <td><input class="qi-unit" value="${esc(unit)}" placeholder="หน่วย"></td>
-    <td><input class="qi-price amt" type="number" step="0.01" value="${price}" placeholder="0.00" style="text-align:right"></td>
-    <td><button class="icon-btn" onclick="this.closest('tr').remove();syncQTotals()">×</button></td>`;
+  tr.innerHTML=itemCardHTML('qi-', detail, qty, unit, price, 'syncQTotals');
   $('qitemsBody').appendChild(tr);
   tr.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',syncQTotals));
   growAll(tr);
@@ -2515,7 +2621,7 @@ function addQItem(detail='',qty=1,unit='',price=''){
 function getQItems(){ return [...document.querySelectorAll('#qitemsBody tr')].map(tr=>{ const qty=Number(tr.querySelector('.qi-qty').value)||0; const price=Number(tr.querySelector('.qi-price').value)||0; return {detail:tr.querySelector('.qi-detail').value, qty, unit:tr.querySelector('.qi-unit').value, price, amount:Math.round(qty*price*100)/100}; }); }
 function calcQ(){ const items=getQItems(); const sub=items.reduce((a,i)=>a+i.amount,0); const vat=Math.round(sub*7)/100; const net=Math.round((sub+vat)*100)/100; return {items,sub,vat,net}; }
 function syncQTotals(){
-  document.querySelectorAll('#qitemsBody tr').forEach((tr,i)=>tr.querySelector('.qrownum').textContent=i+1);
+  paintRows('#qitemsBody tr','.qi-qty','.qi-price');
   const {sub,vat,net}=calcQ();
   $('qtotSummary').innerHTML=`<div class="line"><span>รวมเป็นเงิน</span><b>${fmt(sub)}</b></div><div class="line"><span>VAT 7%</span><b>${fmt(vat)}</b></div><div class="line net"><span>รวมทั้งสิ้น</span><span>${fmt(net)} บาท</span></div>`;
   renderQPreview(false);
@@ -2593,7 +2699,7 @@ async function generateQuotationPDF(){
     }
     holder.innerHTML='';
     const fname=((val('qdocNo')||'quotation').replace(/[^\w\-]/g,'_'))+'.pdf'; pdf.save(fname);
-    const firstDetail=(getQItems()[0]?.detail||'').split('\n')[0].slice(0,60);
+    const _its=getQItems(); const firstDetail=((_its[0]?.detail||'').split('\n')[0].slice(0,160))+(_its.length>1?` และอีก ${_its.length-1} รายการ`:'');
     const selV=vendorData.find(x=>x.id===val('qcustSelect'));
     const meta={ no:val('qdocNo'), customer:val('qcustName'), date:val('qdocDate'), net:net, createdAt:new Date().toISOString(), filename:fname, subject:firstDetail, status:'open', docType:'qt', note:val('qdocNote'), custAddr:val('qcustAddr'), custTax:val('qcustTax'), vendorId:val('qcustSelect'), clientId:(selV?clientCode(selV):''), createdBy:(currentUser?currentUser.name:''), createdByUid:(currentUser?currentUser.uid:''), appVersion:APP_VERSION, items:getQItems().map(i=>({detail:i.detail,qty:i.qty,unit:i.unit,price:i.price,amount:i.amount})) };
     const b64=pdf.output('datauristring').split(',')[1];
@@ -3286,6 +3392,18 @@ window.WHT_FONT_B64="AAEAAAAOAIAAAwBgR0RFRhKJEucAAJpYAAAAnkdQT1N7DlCeAACa+AAAHFZ
   var DICT={
     // preview zoom
     'พอดีหน้า':'Fit page',
+    // item cards + history
+    'รายละเอียด / Description':'Description',
+    'รายละเอียดสินค้าหรือบริการ':'Describe the goods or service',
+    'จำนวน':'Qty',
+    'หน่วย':'Unit',
+    'เช่น ชิ้น':'e.g. pcs',
+    'ราคา/หน่วย':'Unit price',
+    'ยอดรวม':'Amount',
+    'ไปที่ใบเสร็จนี้ในหน้าประวัติ':'Go to this receipt in History',
+    'เปิดไฟล์ PDF':'Open PDF file',
+    'ไม่พบเอกสารนี้ในระบบ':'Document not found',
+    'ไม่พบเอกสารนี้ในรายการที่แสดงอยู่':'Document not found in the current list',
     // login gate + brand
     'ระบบสร้างใบแจ้งหนี้':'Invoice & Tax System',
     'เข้าสู่ระบบเพื่อใช้งาน':'Sign in to continue',
